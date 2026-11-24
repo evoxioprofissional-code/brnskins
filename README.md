@@ -67,3 +67,26 @@ Visualizador 3D em tela cheia com a API gratuita do [CS2Inspect](https://cs2insp
 A chave é pública por design (fica no HTML); a proteção é a lista de sites permitidos. A marca do CS2Inspect é exibida no visualizador (obrigatória no plano gratuito) e só um visualizador é montado por vez (uso justo).
 
 Código: `src/integrations/cs2inspect` (tipos, configuração e hook do SDK) e `src/components/inspect/inspect-studio.tsx` (interface). O botão **Inspecionar 3D** do drawer de cada skin abre `/inspect?skin=<id>&wear=<float>[&st=1]`.
+
+## Banco de dados (Supabase)
+
+As migrations ficam em `supabase/migrations` e são aplicadas em ordem, cada uma em uma transação, com registro em `brn_meta.migrations`.
+
+| Comando | O que faz |
+| --- | --- |
+| `npm run db:status` | lista migrations aplicadas e pendentes |
+| `npm run db:migrate` | aplica as pendentes |
+| `npm run db:verify` | confere tabelas, RLS, buckets e o acesso da chave pública |
+| `npm run db:test` | testa compra, venda, clientes e sub-lojas com admin simulado (transação desfeita) |
+
+Precisa de `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_DB_PASSWORD` e `SUPABASE_DB_URL` no `.env.local`.
+
+**Estrutura:**
+- Catálogo: `categories`, `rarities`, `conditions`, `products`, `product_variants`, `prices` (+ visão `current_prices`) e `kits`/`kit_items`.
+- Vendas: `orders`/`order_items` (criados pela função `create_order`, que recalcula os preços no servidor).
+- Painel: `clients`, `stock_lots`, `movements`, `sub_store_plans`, `sub_stores`, `recovery_rules`/`recovery_contacts`, `settings` e `admin_users`.
+- Operações atômicas: `register_purchase`, `register_sale` e `confirm_sub_store_payment`.
+- Visões do dashboard: `v_daily_sales`, `v_stock_summary` e `v_client_status`.
+- Storage: buckets `banners` e `skins` (leitura pública, escrita só de admin).
+
+**Segurança:** RLS em todas as tabelas. O visitante só lê o catálogo, os planos e as configurações públicas; todo o resto é exclusivo de quem está em `admin_users`. A chave secreta e a senha do banco nunca vão para o frontend.
