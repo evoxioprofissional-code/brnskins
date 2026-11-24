@@ -1,6 +1,12 @@
+import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 
-const hasKey = Boolean(process.env.NEXT_PUBLIC_CS2INSPECT_KEY);
+// O servidor lê a chave do .env.local; o processo do Playwright não carrega esse arquivo.
+const hasKey =
+  Boolean(process.env.NEXT_PUBLIC_CS2INSPECT_KEY) ||
+  (fs.existsSync(".env.local") ? fs.readFileSync(".env.local", "utf8") : "")
+    .split("\n")
+    .some((l) => /^NEXT_PUBLIC_CS2INSPECT_KEY=.+/.test(l.trim()));
 
 test("botão Inspecionar 3D envia a skin selecionada para /inspect", async ({ page }) => {
   await page.goto("/");

@@ -13,7 +13,8 @@ import { CatalogToolbar } from "./catalog-toolbar";
 import { FiltersPanel } from "./filters-panel";
 import { MobileFiltersSheet } from "./mobile-filters-sheet";
 import { SkinCollection } from "./skin-collection";
-import { InspectPanel, InventoryPanel, UpgradesPanel } from "./tab-panels";
+import { InspectPanel, InventoryPanel } from "./tab-panels";
+import { UpgradeLab } from "@/components/upgrade/upgrade-lab";
 
 const countActive = (f: CatalogFilters) =>
   (f.minPrice !== null ? 1 : 0) +
@@ -55,6 +56,7 @@ export function CatalogView() {
         <div className="mt-3 flex items-start gap-[20px] lg:mt-[16px]">
           <aside
             aria-label="Filtros"
+            hidden={tab === "upgrades"}
             className="panel sticky top-[83px] hidden max-h-[calc(100dvh-99px)] w-[232px] shrink-0 overflow-y-auto scrollbar-thin lg:block"
           >
             <FiltersPanel />
@@ -78,7 +80,7 @@ export function CatalogView() {
               </>
             )}
             {tab === "inventory" && <InventoryPanel />}
-            {tab === "upgrades" && <UpgradesPanel />}
+            {tab === "upgrades" && <UpgradeLab />}
             {tab === "inspect" && <InspectPanel />}
           </div>
         </div>

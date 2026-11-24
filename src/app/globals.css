@@ -241,3 +241,12 @@
       0 2px 0 rgb(60 0 8 / 0.9);
   }
 }
+
+/* Upgrade Lab */
+@keyframes reactor-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes upgrade-flow {
+  from { background-position: -100% 0; }
+  to { background-position: 200% 0; }
+}

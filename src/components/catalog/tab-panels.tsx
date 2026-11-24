@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Briefcase, Eye, MessageCircle, RefreshCw } from "lucide-react";
+import { Box, Briefcase, Eye, MessageCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildWhatsAppUrl } from "@/services/checkout/whatsapp";
 import { effectiveWhatsApp, useSettingsStore } from "@/stores/settings-store";
@@ -74,19 +74,6 @@ export function InventoryPanel() {
       steps={["Finalize seu pedido pelo carrinho", "Receba a proposta de troca na Steam", "Aceite a troca e pronto"]}
       cta="Falar sobre meu inventário"
       message="Olá, BRN Skins! Quero ajuda com meu inventário."
-    />
-  );
-}
-
-export function UpgradesPanel() {
-  return (
-    <InfoPanel
-      icon={<RefreshCw size={22} />}
-      title="Upgrade de skins"
-      text="Use suas skins atuais como parte do pagamento por uma skin melhor. Avaliamos seu item e abatemos o valor no pedido."
-      steps={["Escolha a skin que você quer no catálogo", "Envie as skins que deseja dar como parte", "Receba a avaliação e pague só a diferença"]}
-      cta="Solicitar avaliação de upgrade"
-      message="Olá, BRN Skins! Quero fazer um upgrade usando minhas skins como parte do pagamento."
     />
   );
 }
