@@ -17,7 +17,7 @@ test("upgrade lab: monta oferta, escolhe alvo e envia ao WhatsApp", async ({ pag
 
   await page.goto("/");
   await page.getByRole("tab", { name: /Upgrades/ }).click();
-  await expect(page.getByRole("heading", { name: /Troque para/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "UPGRADE" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Solicitar upgrade" })).toBeDisabled();
 
   // Oferta
@@ -37,7 +37,7 @@ test("upgrade lab: monta oferta, escolhe alvo e envia ao WhatsApp", async ({ pag
   await expect(page.getByText("A avaliar")).toBeVisible();
 
   // Alvo
-  await page.getByRole("button", { name: /Escolha seu alvo/ }).click();
+  await page.getByRole("button", { name: "Escolher a skin que você quer" }).click();
   const targetPicker = page.getByRole("dialog", { name: /quer receber/ });
   await targetPicker.getByPlaceholder(/Buscar arma/).fill("neo-noir");
   await targetPicker.getByRole("button", { name: /M4A4 \| Neo-Noir/ }).click();

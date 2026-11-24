@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ChevronDown, Crosshair, MessageCircle, PenLine, Plus, RotateCcw, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowRight, ChevronDown, MessageCircle, PenLine, Plus, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Skin } from "@/types/catalog";
 import { UPGRADE } from "@/config/upgrade";
@@ -44,6 +44,9 @@ export function UpgradeLab() {
   );
 
   const openPicker = (mode: "offer" | "target") => setPicker({ open: true, mode });
+  // Silhueta exibida na vaga vazia do alvo
+  const ghostImage = useMemo(() => (skins.find((s) => s.category === "knife") ?? skins[0])?.image, [skins]);
+
   const closePicker = useCallback(() => setPicker((p) => ({ ...p, open: false })), []);
   const onPick = (pick: UpgradePick) => {
     if (picker.mode === "offer") store.addCatalog(pick);
@@ -70,29 +73,13 @@ export function UpgradeLab() {
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -right-16 size-80 rounded-full bg-primary/10 blur-[90px]" />
 
         {/* Cabeçalho */}
-        <header className="relative flex flex-col gap-4 px-4 pt-5 lg:flex-row lg:items-end lg:justify-between lg:px-7 lg:pt-6">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#ff4d67]">
-              <Sparkles size={12} /> Upgrade Lab
-            </span>
-            <h2 id="upgrade-title" className="mt-2.5 text-[26px] font-black italic leading-none tracking-[-0.02em] lg:text-[32px]">
-              Troque para <span className="text-primary [text-shadow:0_0_18px_rgb(230_0_35/0.6)]">cima.</span>
-            </h2>
-            <p className="mt-2 max-w-[520px] text-[13.5px] leading-relaxed text-fg-2">
-              Monte sua oferta com as skins que você já tem, escolha o alvo e veja na hora quanto falta. Você paga só a
-              diferença.
-            </p>
-          </div>
-          <ol className="flex gap-2 text-[11.5px] font-semibold text-fg-2 max-lg:overflow-x-auto max-lg:scrollbar-none">
-            {["Monte a oferta", "Escolha o alvo", "Pague a diferença"].map((s, i) => (
-              <li key={s} className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface/80 py-1 pl-1 pr-3">
-                <span className="grid size-5 place-items-center rounded-full bg-primary/15 text-[10.5px] font-black text-[#ff4d67]">
-                  {i + 1}
-                </span>
-                {s}
-              </li>
-            ))}
-          </ol>
+        <header className="relative px-4 pt-5 lg:px-7 lg:pt-6">
+          <h2 id="upgrade-title" className="promo-title text-[30px] leading-none lg:text-[36px]">
+            UPGRADE
+          </h2>
+          <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-fg-2">
+            Coloque as skins que você já tem, escolha a que você quer e veja na hora quanto falta. Você paga só a diferença.
+          </p>
         </header>
 
         {/* Mesa de troca */}
@@ -108,6 +95,7 @@ export function UpgradeLab() {
           </div>
 
           <TargetColumn
+            ghostImage={ghostImage}
             skin={targetSkin}
             pick={target}
             price={targetPrice}
@@ -414,12 +402,14 @@ function OfferSlot({ r }: { r: ResolvedOffer }) {
 }
 
 function TargetColumn({
+  ghostImage,
   skin,
   pick,
   price,
   onChoose,
   onClear,
 }: {
+  ghostImage?: string;
   skin?: Skin;
   pick: UpgradePick | null;
   price: number;
@@ -432,17 +422,28 @@ function TargetColumn({
         <button
           type="button"
           onClick={onChoose}
-          className="group relative flex min-h-[244px] flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-[11px] border border-dashed border-primary/45 bg-primary/[0.03] transition-colors hover:border-primary hover:bg-primary/[0.07]"
+          aria-label="Escolher a skin que você quer"
+          className="group relative flex min-h-[244px] flex-1 flex-col overflow-hidden rounded-[11px] border border-[#1d1e23] bg-[#0b0c0f] text-left transition-colors hover:border-[#2c2d33]"
         >
-          <span className="relative grid size-16 place-items-center">
-            <span className="absolute inset-0 animate-ping rounded-full bg-primary/15 motion-reduce:animate-none" />
-            <span className="relative grid size-14 place-items-center rounded-full border border-primary/50 bg-[#14070a] text-primary">
-              <Crosshair size={26} />
-            </span>
+          <span className="relative min-h-[150px] flex-1">
+            {ghostImage && (
+              <Image
+                src={ghostImage}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 420px, 90vw"
+                className="object-contain p-6 opacity-[0.07] transition-opacity duration-300 [filter:brightness(0)_invert(1)] group-hover:opacity-[0.12]"
+              />
+            )}
           </span>
-          <span className="text-[14px] font-bold">Escolha seu alvo</span>
-          <span className="max-w-[220px] text-center text-[12px] text-muted">
-            Busque no catálogo ou toque em uma sugestão abaixo.
+          <span className="flex items-center justify-between gap-3 border-t border-white/[0.05] px-3 py-2.5">
+            <span>
+              <span className="block text-[14px] font-bold">Nenhuma skin escolhida</span>
+              <span className="block text-[12px] text-muted">Busque no catálogo ou toque em uma sugestão.</span>
+            </span>
+            <span className="btn-outline-red flex h-9 shrink-0 items-center gap-1.5 rounded-[8px] px-3.5 text-[13px] font-semibold text-white">
+              Escolher <ArrowRight size={14} />
+            </span>
           </span>
         </button>
       </ColumnShell>

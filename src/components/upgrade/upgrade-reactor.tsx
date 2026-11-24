@@ -133,7 +133,7 @@ export function UpgradeReactor({
           </>
         ) : (
           <>
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-faint">Upgrade</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-faint">Multiplicador</p>
             <p className="mt-1 text-[38px] font-black italic leading-none tracking-[-0.03em] text-white/25">x?</p>
             <p className="mt-2 max-w-[120px] text-[11.5px] leading-snug text-muted">
               {!hasOffer && !hasTarget ? "Monte sua oferta e escolha o alvo" : !hasOffer ? "Adicione suas skins" : "Escolha o alvo"}
