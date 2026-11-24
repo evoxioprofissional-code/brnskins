@@ -1,0 +1,243 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   BRN Skins — design tokens
+   Ajustados a partir de references/redesign-desktop.png
+   ------------------------------------------------------------------ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: #040507;
+  --color-bg-soft: #07080a;
+  --color-surface: #0a0b0d;
+  --color-surface-2: #0e0f12;
+  --color-elevated: #141519;
+  --color-elevated-2: #1a1b20;
+  --color-border: #1c1d22;
+  --color-border-strong: #26272d;
+
+  --color-primary: #e60023;
+  --color-primary-hover: #ff1238;
+  --color-primary-deep: #8a0014;
+  --color-primary-ink: #2a0007;
+
+  --color-fg: #f5f5f5;
+  --color-fg-2: #c9cad0;
+  --color-muted: #96979f;
+  --color-faint: #63646b;
+
+  --color-success: #22c55e;
+  --color-success-ink: #0b2a17;
+
+  --color-wear-fn: #22c55e;
+  --color-wear-mw: #a3e635;
+  --color-wear-ft: #f59e0b;
+  --color-wear-ww: #f59e0b;
+  --color-wear-bs: #ef4444;
+
+  --radius-card: 12px;
+
+  --shadow-glow: 0 0 0 1px rgb(230 0 35 / 0.55), 0 0 18px -2px rgb(230 0 35 / 0.45);
+  --shadow-glow-sm: 0 0 12px -2px rgb(230 0 35 / 0.55);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: rgb(230 0 35 / 0.45);
+    color: #fff;
+  }
+  input::placeholder {
+    color: var(--color-muted);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Superfície padrão de painéis (sidebar, toolbar, cards) */
+  .panel {
+    background: linear-gradient(180deg, #0b0c0e 0%, #08090b 100%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  /* Botão / aba ativa vermelha com brilho (header, abas, toggle de grid) */
+  .glow-active {
+    background: linear-gradient(180deg, #4a0410 0%, #2a0208 100%);
+    border: 1px solid rgb(255 30 60 / 0.75);
+    box-shadow:
+      0 0 14px -3px rgb(230 0 35 / 0.7),
+      inset 0 0 12px rgb(230 0 35 / 0.18);
+  }
+
+  /* Botão "Ver detalhes" dos cards */
+  .btn-outline-red {
+    background: linear-gradient(180deg, #3a030c 0%, #22020a 100%);
+    border: 1px solid rgb(255 25 55 / 0.85);
+    box-shadow: 0 0 10px -3px rgb(230 0 35 / 0.6);
+  }
+  .btn-outline-red:hover {
+    background: linear-gradient(180deg, #55040f 0%, #33030c 100%);
+  }
+
+  /* CTA principal sólido */
+  .btn-solid-red {
+    background: linear-gradient(180deg, #ff1636 0%, #e00020 55%, #c4001c 100%);
+    box-shadow:
+      0 8px 22px -8px rgb(230 0 35 / 0.75),
+      inset 0 1px 0 rgb(255 255 255 / 0.12);
+  }
+  .btn-solid-red:hover {
+    background: linear-gradient(180deg, #ff2a48 0%, #f00426 55%, #d0001e 100%);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #2a2b31 transparent;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Slider de preço com duas alças (inputs range sobrepostos) */
+  .price-range {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background: transparent;
+    pointer-events: none;
+    -webkit-appearance: none;
+    appearance: none;
+    z-index: 3;
+  }
+  .price-range::-webkit-slider-runnable-track { background: transparent; height: 100%; }
+  .price-range::-moz-range-track { background: transparent; }
+  .price-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    pointer-events: auto;
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 0 0 3px rgb(230 0 35 / 0.18), 0 2px 6px rgb(0 0 0 / 0.6);
+    cursor: grab;
+    transition: transform 0.12s;
+  }
+  .price-range::-moz-range-thumb {
+    pointer-events: auto;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 0 0 3px rgb(230 0 35 / 0.18), 0 2px 6px rgb(0 0 0 / 0.6);
+    cursor: grab;
+  }
+  .price-range:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.12); }
+  .price-range:focus-visible { outline: none; }
+  .price-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgb(230 0 35 / 0.45); }
+
+  /* Controles do BRN Inspect 3D */
+  .studio-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+  }
+  .studio-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+  }
+  .studio-range::-moz-range-thumb {
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    background: #fff;
+    border: 3px solid var(--color-primary);
+  }
+  .studio-range:disabled { cursor: not-allowed; }
+  .studio-switch {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 38px;
+    height: 22px;
+    border-radius: 9999px;
+    background: #24252b;
+    transition: background 0.15s;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .studio-switch::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #fff;
+    transition: transform 0.15s;
+  }
+  .studio-switch:checked { background: var(--color-primary); }
+  .studio-switch:checked::after { transform: translateX(16px); }
+
+  /* Títulos da faixa promocional */
+  .promo-title {
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: -0.01em;
+    color: #ff1a3a;
+    text-shadow:
+      0 0 14px rgb(230 0 35 / 0.55),
+      0 2px 0 rgb(60 0 8 / 0.9);
+  }
+}
