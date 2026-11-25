@@ -11,6 +11,8 @@ export interface WhatsAppOrderInput {
   items: CartItem[];
   total: number;
   orderId: string;
+  /** Código do influenciador que indicou o cliente */
+  referral?: string | null;
 }
 
 const line = (item: CartItem) => {
@@ -30,6 +32,7 @@ export function buildOrderMessage(input: WhatsAppOrderInput) {
     `Pedido: ${input.orderId}`,
     `Nome: ${input.customerName}`,
     input.tradeLink ? `Trade link: ${input.tradeLink}` : null,
+    input.referral ? `Indicação: ${input.referral}` : null,
     "",
     ...input.items.map(line),
     "",

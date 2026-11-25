@@ -135,6 +135,7 @@ export function buildUpgradeMessage(
   resolved: ResolvedOffer[],
   target: { skin: Skin; pick: UpgradePick } | null,
   q: UpgradeQuote,
+  meta: { reference?: string; referral?: string | null } = {},
 ) {
   const give = resolved.map(
     (r) =>
@@ -142,6 +143,8 @@ export function buildUpgradeMessage(
   );
   return [
     "Olá, BRN Skins! Quero fazer um upgrade.",
+    meta.reference ? `Pedido: ${meta.reference}` : null,
+    meta.referral ? `Indicação: ${meta.referral}` : null,
     "",
     account ? `Steam: ${profileUrl(account.steamId)}` : null,
     account?.tradeLink ? `Trade link: ${account.tradeLink}` : null,

@@ -1,6 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { trackReferralConversion } from "@/app/actions/referral";
+import { readReferralCode } from "@/lib/referral-client";
 import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -98,6 +100,7 @@ export function CartView() {
     }
     setErrors({});
     const orderId = createId("BRN").toUpperCase();
+    const referral = readReferralCode();
     const message = buildOrderMessage({
       greeting: whatsapp.greeting,
       footer: whatsapp.orderTemplateFooter,
@@ -107,6 +110,7 @@ export function CartView() {
       items,
       total,
       orderId,
+      referral,
     });
     const url = buildWhatsAppUrl(phone, message);
     if (!url) {
@@ -127,6 +131,8 @@ export function CartView() {
     };
     addOrder(order);
     window.open(url, "_blank", "noopener,noreferrer");
+    // Registra a comissão do influenciador sem atrasar a abertura do WhatsApp
+    if (referral) void trackReferralConversion({ source: "order", reference: orderId, amount: total });
     clear();
     toast("Pedido enviado para o WhatsApp");
   };

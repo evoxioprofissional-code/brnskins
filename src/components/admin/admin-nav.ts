@@ -3,6 +3,7 @@ import {
   ClipboardList,
   FileBarChart,
   LayoutDashboard,
+  Megaphone,
   MessageCircle,
   Settings,
   Store,
@@ -51,6 +52,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/movimentacoes", label: "Movimentações", icon: ArrowRightLeft, title: "Movimentações", subtitle: "Entradas (compras) e saídas (vendas)" },
   { href: "/admin/sub-lojas", label: "Sub-Lojas", icon: Store, title: "Sub-Lojas", subtitle: "Lojas vendidas para revendedores" },
   { href: "/admin/clientes", label: "Clientes", icon: UsersRound, title: "Clientes", subtitle: "Quem compra, quanto e há quanto tempo" },
+  { href: "/admin/influenciadores", label: "Influenciadores", icon: Megaphone, title: "Influenciadores", subtitle: "Links de indicação e comissões" },
   { href: "/admin/automacao", label: "Automação", icon: Workflow, title: "Automação", subtitle: "Recuperação automática de clientes" },
   { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageCircle, title: "WhatsApp", subtitle: "Número e mensagens da loja" },
   { href: "/admin/pedidos", label: "Pedidos", icon: ClipboardList, title: "Pedidos", subtitle: "Pedidos enviados pelo carrinho" },
@@ -77,6 +79,6 @@ const byHref = (href: string) => ADMIN_NAV.find((i) => i.href === href)!;
 export const ADMIN_NAV_SECTIONS: { label: string; items: AdminNavItem[] }[] = [
   { label: "Geral", items: [byHref("/admin"), byHref("/admin/pedidos")] },
   { label: "Operação", items: [byHref("/admin/estoque"), byHref("/admin/movimentacoes"), byHref("/admin/financeiro")] },
-  { label: "Clientes", items: [byHref("/admin/clientes"), byHref("/admin/automacao"), byHref("/admin/sub-lojas")] },
+  { label: "Clientes", items: [byHref("/admin/clientes"), byHref("/admin/influenciadores"), byHref("/admin/automacao"), byHref("/admin/sub-lojas")] },
   { label: "Sistema", items: [byHref("/admin/whatsapp"), byHref("/admin/relatorios"), byHref("/admin/configuracoes")] },
 ];

@@ -15,6 +15,9 @@ import { formatBRL } from "@/lib/format";
 import { skinDisplayName } from "@/lib/skin";
 import { buildUpgradeMessage, formatMultiplier, pickPrice, quote, resolveOffer, suggestTargets, type ResolvedOffer } from "@/lib/upgrade";
 import { useUpgradeStore, type UpgradePick } from "@/stores/upgrade-store";
+import { trackReferralConversion } from "@/app/actions/referral";
+import { createId } from "@/lib/id";
+import { readReferralCode } from "@/lib/referral-client";
 import { AnimatedNumber, UpgradeReactor } from "./upgrade-reactor";
 import { SkinPicker } from "./skin-picker";
 import { SteamInventoryPicker } from "./steam-inventory-picker";
@@ -58,8 +61,16 @@ export function UpgradeLab() {
     closeTarget();
   };
 
-  const send = () =>
-    openWhatsApp(buildUpgradeMessage(steam, resolved, targetSkin && target ? { skin: targetSkin, pick: target } : null, q));
+  const send = () => {
+    const reference = createId("UPG").toUpperCase();
+    const referral = readReferralCode();
+    const opened = openWhatsApp(
+      buildUpgradeMessage(steam, resolved, targetSkin && target ? { skin: targetSkin, pick: target } : null, q, { reference, referral }),
+    );
+    // Comissão sobre o valor que o cliente paga (diferença), quando houver indicação
+    if (opened && referral)
+      void trackReferralConversion({ source: "upgrade", reference, amount: hasTarget ? Math.max(0, q.difference) : 0 });
+  };
 
   return (
     <div className="space-y-4">
