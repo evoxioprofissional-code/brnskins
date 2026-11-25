@@ -12,7 +12,7 @@ import { AdminCard, AdminPageHeader, DemoNotice, Field, Toggle, inputClass } fro
 
 function SaveButton() {
   return (
-    <button type="submit" className="btn-solid-red h-10 rounded-[8px] px-5 text-[13.5px] font-semibold">
+    <button type="submit" className="h-9 rounded-[8px] bg-primary px-4 text-[13px] font-semibold text-white transition-colors hover:bg-primary-hover">
       Salvar alterações
     </button>
   );

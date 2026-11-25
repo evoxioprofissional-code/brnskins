@@ -11,7 +11,7 @@ export function LoginForm({ next }: { next: string }) {
       <input type="hidden" name="next" value={next} />
       <label className="block text-[12.5px] font-semibold text-fg-2">
         Senha
-        <div className="mt-1.5 flex h-11 items-center rounded-[8px] border border-[#1d1e22] bg-[#0e0f11] px-3 focus-within:border-primary/60">
+        <div className="mt-1.5 flex h-11 items-center rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-3 focus-within:border-primary/60">
           <Lock size={16} className="text-fg-2" />
           <input
             name="password"

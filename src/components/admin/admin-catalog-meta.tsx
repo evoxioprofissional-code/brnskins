@@ -73,7 +73,7 @@ export function AdminKits() {
           const items = k.items.map((i) => ({ ...i, skin: byId.get(i.skinId) })).filter((i) => i.skin);
           const sum = items.reduce((s, i) => s + priceFor(getOffer(i.skin!, i.wear), i.variant), 0);
           return (
-            <AdminCard key={k.id} title={k.name} actions={k.tag && <span className="text-[11px] font-bold uppercase text-primary">{k.tag}</span>}>
+            <AdminCard key={k.id} title={k.name} actions={k.tag && <span className="text-[12px] text-muted">{k.tag}</span>}>
               <ul className="space-y-2">
                 {items.map((i) => (
                   <li key={i.skinId} className="flex items-center gap-3 text-[13px]">

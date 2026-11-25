@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     qualities: [40, 75],
+    // Ícones dos itens do inventário Steam (Upgrade)
+    remotePatterns: [
+      { protocol: "https", hostname: "community.akamai.steamstatic.com", pathname: "/economy/image/**" },
+    ],
   },
 };
 

@@ -26,13 +26,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <AdminSidebar mobileOpen={menu} onClose={() => setMenu(false)} />
       <div className="min-w-0 flex-1">
         <AdminTopbar onMenu={() => setMenu(true)} />
-        <main className="px-4 py-5 lg:px-[26px] lg:py-[20px]">
+        <main className="mx-auto max-w-[1440px] px-4 py-6 lg:px-8 lg:py-7">
           {hydrated && seeded ? (
             children
           ) : (
             <div className="grid gap-4 md:grid-cols-4" aria-busy>
               {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className="h-28 animate-pulse rounded-[14px] bg-[#0b0c0e]" />
+                <div key={i} className="h-28 animate-pulse rounded-[12px] bg-white/[0.03]" />
               ))}
             </div>
           )}

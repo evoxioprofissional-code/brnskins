@@ -38,8 +38,8 @@ export function AdminSkins() {
       </DemoNotice>
       <AdminCard>
         <div className="mb-4 flex flex-wrap gap-2">
-          <label className="flex h-10 min-w-[220px] flex-1 items-center rounded-[8px] border border-[#1d1e22] bg-[#0e0f11] px-3">
-            <Search size={16} className="text-fg-2" />
+          <label className="flex h-9 min-w-[220px] flex-1 items-center rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-3 focus-within:border-white/[0.16]">
+            <Search size={15} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar skin..." className="ml-2 flex-1 bg-transparent text-[13.5px] outline-none" />
           </label>
           <select value={cat} onChange={(e) => setCat(e.target.value)} className={`${inputClass} w-auto`} aria-label="Categoria">

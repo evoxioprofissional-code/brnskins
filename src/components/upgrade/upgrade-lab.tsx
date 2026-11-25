@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, ChevronDown, MessageCircle, PenLine, Plus, RotateCcw, ShieldCheck, X } from "lucide-react";
+import { ArrowRight, ChevronDown, MessageCircle, Plus, RotateCcw, ShieldCheck, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import type { Skin } from "@/types/catalog";
 import { UPGRADE } from "@/config/upgrade";
@@ -17,6 +17,7 @@ import { buildUpgradeMessage, formatMultiplier, pickPrice, quote, resolveOffer, 
 import { useUpgradeStore, type UpgradePick } from "@/stores/upgrade-store";
 import { AnimatedNumber, UpgradeReactor } from "./upgrade-reactor";
 import { SkinPicker } from "./skin-picker";
+import { SteamInventoryPicker } from "./steam-inventory-picker";
 
 const brl = (n: number) => formatBRL(n);
 const rarityColor = (skin: Skin) => getRarity(skin.rarity)?.color ?? "#e60023";
@@ -27,35 +28,38 @@ export function UpgradeLab() {
   const store = useUpgradeStore();
   const offer = hydrated ? store.offer : [];
   const target = hydrated ? store.target : null;
-  const [picker, setPicker] = useState<{ open: boolean; mode: "offer" | "target" }>({ open: false, mode: "offer" });
+  const steam = hydrated ? store.steam : null;
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [targetOpen, setTargetOpen] = useState(false);
   const openWhatsApp = useOpenWhatsApp();
 
-  const resolved = useMemo(() => resolveOffer(offer, getSkin), [offer, getSkin]);
+  const resolved = useMemo(() => resolveOffer(offer, skins), [offer, skins]);
   const targetSkin = target ? getSkin(target.skinId) : undefined;
   const targetPrice = target && targetSkin ? pickPrice(targetSkin, target) : 0;
   const q = quote(resolved, targetPrice);
   const hasOffer = offer.length > 0;
+  /** Há itens com estimativa (os demais ficam "a avaliar") */
+  const hasValue = q.offerValue > 0;
   const hasTarget = !!targetSkin;
 
-  const offeredIds = useMemo(() => offer.flatMap((i) => (i.kind === "catalog" ? [i.skinId] : [])), [offer]);
+  const offeredIds = useMemo(() => resolved.flatMap((r) => (r.match ? [r.match.skin.id] : [])), [resolved]);
   const suggestions = useMemo(
     () => suggestTargets(skins, q.offerValue, store.multiplier, offeredIds),
     [skins, q.offerValue, store.multiplier, offeredIds],
   );
 
-  const openPicker = (mode: "offer" | "target") => setPicker({ open: true, mode });
   // Silhueta exibida na vaga vazia do alvo
   const ghostImage = useMemo(() => (skins.find((s) => s.category === "knife") ?? skins[0])?.image, [skins]);
 
-  const closePicker = useCallback(() => setPicker((p) => ({ ...p, open: false })), []);
-  const onPick = (pick: UpgradePick) => {
-    if (picker.mode === "offer") store.addCatalog(pick);
-    else store.setTarget(pick);
-    closePicker();
+  const closeInventory = useCallback(() => setInventoryOpen(false), []);
+  const closeTarget = useCallback(() => setTargetOpen(false), []);
+  const onPickTarget = (pick: UpgradePick) => {
+    store.setTarget(pick);
+    closeTarget();
   };
 
   const send = () =>
-    openWhatsApp(buildUpgradeMessage(resolved, targetSkin && target ? { skin: targetSkin, pick: target } : null, q));
+    openWhatsApp(buildUpgradeMessage(steam, resolved, targetSkin && target ? { skin: targetSkin, pick: target } : null, q));
 
   return (
     <div className="space-y-4">
@@ -78,19 +82,19 @@ export function UpgradeLab() {
             UPGRADE
           </h2>
           <p className="mt-2 max-w-[560px] text-[13.5px] leading-relaxed text-fg-2">
-            Coloque as skins que você já tem, escolha a que você quer e veja na hora quanto falta. Você paga só a diferença.
+            Escolha skins do seu inventário Steam, a skin que você quer e veja na hora quanto falta. Você paga só a diferença.
           </p>
         </header>
 
         {/* Mesa de troca */}
         <div className="relative grid gap-4 px-4 pb-4 pt-5 lg:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] lg:items-stretch lg:gap-0 lg:px-7 lg:pb-6 lg:pt-6">
-          <OfferColumn resolved={resolved} total={q.offerValue} onAdd={() => openPicker("offer")} onRemove={store.remove} />
+          <OfferColumn resolved={resolved} total={q.offerValue} connected={!!steam} onAdd={() => setInventoryOpen(true)} onRemove={store.remove} />
 
           <div className="relative flex flex-col items-center justify-center py-2 lg:py-0">
             <FlowLine className="hidden lg:block" side="left" active={hasOffer} />
             <FlowLine className="hidden lg:block" side="right" active={hasOffer && hasTarget} />
             <ChevronDown aria-hidden size={20} className="mb-1 animate-bounce text-primary/70 lg:hidden" />
-            <UpgradeReactor coverage={q.coverage} multiplier={q.multiplier} hasOffer={hasOffer} hasTarget={hasTarget} />
+            <UpgradeReactor coverage={q.coverage} multiplier={q.multiplier} hasOffer={hasValue} pendingOnly={hasOffer && !hasValue} hasTarget={hasTarget} />
             <ChevronDown aria-hidden size={20} className="mt-1 animate-bounce text-primary/70 lg:hidden" />
           </div>
 
@@ -99,7 +103,7 @@ export function UpgradeLab() {
             skin={targetSkin}
             pick={target}
             price={targetPrice}
-            onChoose={() => openPicker("target")}
+            onChoose={() => setTargetOpen(true)}
             onClear={() => store.setTarget(null)}
           />
         </div>
@@ -107,7 +111,7 @@ export function UpgradeLab() {
         {/* Resumo + CTA */}
         <footer className="relative flex flex-col gap-4 border-t border-border bg-black/30 px-4 py-4 lg:flex-row lg:items-center lg:px-7">
           <dl className="grid flex-1 grid-cols-3 gap-3 lg:flex lg:gap-8">
-            <Stat label="Suas skins (est.)" value={q.offerValue} />
+            <Stat label="Suas skins (est.)" value={q.offerValue} note={q.pending ? `+ ${q.pending} a avaliar` : undefined} />
             <Stat label="Alvo" value={q.targetPrice} />
             <div>
               <dt className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-faint">
@@ -162,15 +166,17 @@ export function UpgradeLab() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 id="upgrade-suggestions" className="text-[15.5px] font-bold">
-              {hasOffer ? "Alvos ao seu alcance" : "Alvos populares"}
+              {hasValue ? "Alvos ao seu alcance" : "Alvos populares"}
             </h3>
             <p className="text-[12.5px] text-muted">
-              {hasOffer
+              {hasValue
                 ? `Skins perto de ${formatMultiplier(store.multiplier)} o valor da sua oferta.`
-                : "Adicione suas skins para ver sugestões pelo multiplicador."}
+                : hasOffer
+                  ? "Seus itens serão avaliados pela equipe. Escolha o alvo que você quer."
+                  : "Adicione suas skins para ver sugestões pelo multiplicador."}
             </p>
           </div>
-          {hasOffer && (
+          {hasValue && (
             <div role="radiogroup" aria-label="Multiplicador" className="flex gap-1 rounded-[10px] border border-border bg-surface p-1">
               {UPGRADE.multipliers.map((m) => (
                 <button
@@ -240,26 +246,30 @@ export function UpgradeLab() {
         </ul>
       </section>
 
-      <SkinPicker
-        open={picker.open}
-        mode={picker.mode}
-        onClose={closePicker}
-        onPick={onPick}
-        onCustom={(name) => {
-          store.addCustom(name);
-          closePicker();
+      <SteamInventoryPicker
+        open={inventoryOpen}
+        account={steam}
+        selected={offer}
+        onClose={closeInventory}
+        onConnect={store.connect}
+        onDisconnect={store.disconnect}
+        onConfirm={(items) => {
+          store.setOffer(items);
+          closeInventory();
         }}
       />
+      <SkinPicker open={targetOpen} onClose={closeTarget} onPick={onPickTarget} />
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
     <div>
       <dt className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-faint">{label}</dt>
       <dd>
         <AnimatedNumber value={value} format={brl} className="text-[15px] font-bold text-fg lg:text-[18px]" />
+        {note && <span className="block text-[11px] font-semibold text-[#f59e0b]">{note}</span>}
       </dd>
     </div>
   );
@@ -300,11 +310,13 @@ function ColumnShell({ title, aside, children, className }: { title: string; asi
 function OfferColumn({
   resolved,
   total,
+  connected,
   onAdd,
   onRemove,
 }: {
   resolved: ResolvedOffer[];
   total: number;
+  connected: boolean;
   onAdd: () => void;
   onRemove: (key: string) => void;
 }) {
@@ -322,7 +334,7 @@ function OfferColumn({
         <AnimatePresence initial={false}>
           {resolved.map((r) => (
             <motion.li
-              key={r.item.key}
+              key={r.item.assetId}
               layout
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -333,7 +345,7 @@ function OfferColumn({
               <OfferSlot r={r} />
               <button
                 type="button"
-                onClick={() => onRemove(r.item.key)}
+                onClick={() => onRemove(r.item.assetId)}
                 aria-label="Remover da oferta"
                 className="absolute right-1 top-1 z-10 grid size-6 place-items-center rounded-md bg-black/60 text-fg-2 opacity-100 transition-opacity hover:text-white lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100"
               >
@@ -353,7 +365,7 @@ function OfferColumn({
                 <span className="grid size-8 place-items-center rounded-full bg-primary/15 text-primary">
                   <Plus size={17} />
                 </span>
-                Adicionar skin
+                <span className="px-2 text-center leading-tight">{connected ? "Adicionar skin" : "Escolher do inventário Steam"}</span>
               </button>
             ) : (
               <div className="size-full rounded-[11px] border border-dashed border-[#1d1e23]" />
@@ -366,37 +378,33 @@ function OfferColumn({
 }
 
 function OfferSlot({ r }: { r: ResolvedOffer }) {
-  if (r.item.kind === "custom") {
-    return (
-      <div className="flex size-full flex-col justify-between p-2.5">
-        <span className="grid size-8 place-items-center rounded-lg bg-white/5 text-fg-2">
-          <PenLine size={15} />
-        </span>
-        <div>
-          <p className="line-clamp-2 text-[11.5px] font-semibold leading-tight">{r.item.name}</p>
-          <p className="mt-1 text-[11px] font-semibold text-[#f59e0b]">A avaliar</p>
-        </div>
-      </div>
-    );
-  }
-  if (!r.skin) return <div className="grid size-full place-items-center text-[11px] text-muted">Indisponível</div>;
-  const color = rarityColor(r.skin);
+  const { item } = r;
   return (
-    <div className="flex size-full flex-col p-2">
+    <div className="flex size-full flex-col p-2" title={item.marketHashName}>
       <div className="relative min-h-0 flex-1">
-        <span
-          aria-hidden
-          className="absolute inset-x-3 inset-y-1 rounded-full blur-[14px]"
-          style={{ background: `radial-gradient(closest-side, ${color}55, transparent)` }}
-        />
-        <Image src={r.skin.image} alt="" fill sizes="140px" className="object-contain" />
-        <span className="absolute bottom-0 left-0 text-[10px] font-bold" style={{ color: WEAR_COLORS[r.item.wear] }}>
-          {r.item.wear}
-          {r.item.variant !== "normal" && <span className="ml-1 text-[#ff9a5c]">{r.item.variant === "stattrak" ? "ST" : "SV"}</span>}
-        </span>
+        {item.rarityColor && (
+          <span
+            aria-hidden
+            className="absolute inset-x-3 inset-y-1 rounded-full blur-[14px]"
+            style={{ background: `radial-gradient(closest-side, ${item.rarityColor}55, transparent)` }}
+          />
+        )}
+        <Image src={item.image} alt="" fill sizes="140px" className="object-contain" />
+        {r.match && (
+          <span className="absolute bottom-0 left-0 text-[10px] font-bold" style={{ color: WEAR_COLORS[r.match.pick.wear] }}>
+            {r.match.pick.wear}
+            {r.match.pick.variant !== "normal" && (
+              <span className="ml-1 text-[#ff9a5c]">{r.match.pick.variant === "stattrak" ? "ST" : "SV"}</span>
+            )}
+          </span>
+        )}
       </div>
-      <p className="mt-1 truncate text-[11px] font-semibold text-fg-2">{skinDisplayName(r.skin)}</p>
-      <p className="text-[12.5px] font-bold">{formatBRL(r.estimate)}</p>
+      <p className="mt-1 truncate text-[11px] font-semibold text-fg-2">{item.name}</p>
+      {r.match ? (
+        <p className="text-[12.5px] font-bold">{formatBRL(r.estimate)}</p>
+      ) : (
+        <p className="text-[12px] font-semibold text-[#f59e0b]">A avaliar</p>
+      )}
     </div>
   );
 }

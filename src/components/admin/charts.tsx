@@ -53,7 +53,7 @@ export function AreaChart({
     const raw = Math.max(1, ...series.flatMap((s) => s.values));
     const step = Math.pow(10, Math.floor(Math.log10(raw)));
     const nice = Math.ceil(raw / step) * step;
-    const t = Array.from({ length: 6 }, (_, i) => (nice / 5) * i);
+    const t = Array.from({ length: 5 }, (_, i) => (nice / 4) * i);
     return { max: nice, ticks: t };
   }, [series]);
 
@@ -83,22 +83,22 @@ export function AreaChart({
           <defs>
             {series.map((s) => (
               <linearGradient key={s.key} id={`fill-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor={s.color} stopOpacity="0.38" />
+                <stop offset="0" stopColor={s.color} stopOpacity="0.14" />
                 <stop offset="1" stopColor={s.color} stopOpacity="0" />
               </linearGradient>
             ))}
           </defs>
           {ticks.map((t) => (
             <g key={t}>
-              <line x1={padL} x2={padL + w} y1={y(t)} y2={y(t)} stroke="#1a1b20" strokeDasharray={t === 0 ? undefined : "3 4"} />
-              <text x={padL - 10} y={y(t) + 4} textAnchor="end" className="fill-[#9a9ba3] text-[11px]">
+              <line x1={padL} x2={padL + w} y1={y(t)} y2={y(t)} stroke="rgb(255 255 255 / 0.05)" />
+              <text x={padL - 10} y={y(t) + 4} textAnchor="end" className="fill-[#6b6c74] text-[11px]">
                 {compact(t)}
               </text>
             </g>
           ))}
           {labels.map((l, i) =>
             (n - 1 - i) % labelEvery === 0 ? (
-              <text key={i} x={x(i)} y={height - 5} textAnchor="middle" className="fill-[#9a9ba3] text-[11px]">
+              <text key={i} x={x(i)} y={height - 5} textAnchor="middle" className="fill-[#6b6c74] text-[11px]">
                 {l}
               </text>
             ) : null,

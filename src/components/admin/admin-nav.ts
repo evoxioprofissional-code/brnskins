@@ -70,3 +70,13 @@ export function findNavLink(pathname: string): AdminNavLink | undefined {
   const all = ADMIN_NAV.flatMap((i) => (i.children ? i.children : [i]));
   return [...all].sort((a, b) => b.href.length - a.href.length).find((l) => (l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href)));
 }
+
+const byHref = (href: string) => ADMIN_NAV.find((i) => i.href === href)!;
+
+/** Menu lateral agrupado por assunto. */
+export const ADMIN_NAV_SECTIONS: { label: string; items: AdminNavItem[] }[] = [
+  { label: "Geral", items: [byHref("/admin"), byHref("/admin/pedidos")] },
+  { label: "Operação", items: [byHref("/admin/estoque"), byHref("/admin/movimentacoes"), byHref("/admin/financeiro")] },
+  { label: "Clientes", items: [byHref("/admin/clientes"), byHref("/admin/automacao"), byHref("/admin/sub-lojas")] },
+  { label: "Sistema", items: [byHref("/admin/whatsapp"), byHref("/admin/relatorios"), byHref("/admin/configuracoes")] },
+];

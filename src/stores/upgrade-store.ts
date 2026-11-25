@@ -3,29 +3,35 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { VariantType, WearCode } from "@/types/catalog";
+import type { SteamInventoryItem } from "@/integrations/steam/types";
 import { UPGRADE, type UpgradeMultiplier } from "@/config/upgrade";
-import { createId } from "@/lib/id";
 import { safeStorage } from "./storage";
 
-/** Skin do catálogo escolhida com condição e variação. */
+/** Skin do catálogo escolhida como alvo, com condição e variação. */
 export interface UpgradePick {
   skinId: string;
   wear: WearCode;
   variant: VariantType;
 }
 
-/** Item oferecido: do catálogo (com estimativa) ou informado à mão (avaliado pela equipe). */
-export type OfferItem =
-  | ({ key: string; kind: "catalog" } & UpgradePick)
-  | { key: string; kind: "custom"; name: string };
+/** Item do inventário Steam do cliente colocado na oferta. */
+export type OfferItem = Pick<SteamInventoryItem, "assetId" | "marketHashName" | "name" | "image" | "rarityColor" | "exterior">;
+
+export interface SteamAccount {
+  steamId: string;
+  tradeLink: string | null;
+}
 
 interface UpgradeState {
+  steam: SteamAccount | null;
   offer: OfferItem[];
   target: UpgradePick | null;
   multiplier: UpgradeMultiplier;
-  addCatalog: (pick: UpgradePick) => void;
-  addCustom: (name: string) => void;
-  remove: (key: string) => void;
+  connect: (account: SteamAccount) => void;
+  disconnect: () => void;
+  /** Substitui a seleção de itens da oferta (limite em UPGRADE.maxOfferItems) */
+  setOffer: (items: OfferItem[]) => void;
+  remove: (assetId: string) => void;
   setTarget: (pick: UpgradePick | null) => void;
   setMultiplier: (m: UpgradeMultiplier) => void;
   reset: () => void;
@@ -34,26 +40,27 @@ interface UpgradeState {
 export const useUpgradeStore = create<UpgradeState>()(
   persist(
     (set) => ({
+      steam: null,
       offer: [],
       target: null,
       multiplier: 2,
-      addCatalog: (pick) =>
-        set((s) =>
-          s.offer.length >= UPGRADE.maxOfferItems
-            ? s
-            : { offer: [...s.offer, { key: createId("up"), kind: "catalog", ...pick }] },
-        ),
-      addCustom: (name) =>
-        set((s) =>
-          s.offer.length >= UPGRADE.maxOfferItems
-            ? s
-            : { offer: [...s.offer, { key: createId("up"), kind: "custom", name: name.trim() }] },
-        ),
-      remove: (key) => set((s) => ({ offer: s.offer.filter((i) => i.key !== key) })),
+      connect: (steam) => set((s) => ({ steam, offer: s.steam?.steamId === steam.steamId ? s.offer : [] })),
+      disconnect: () => set({ steam: null, offer: [] }),
+      setOffer: (items) => set({ offer: items.slice(0, UPGRADE.maxOfferItems) }),
+      remove: (assetId) => set((s) => ({ offer: s.offer.filter((i) => i.assetId !== assetId) })),
       setTarget: (target) => set({ target }),
       setMultiplier: (multiplier) => set({ multiplier }),
       reset: () => set({ offer: [], target: null }),
     }),
-    { name: "brn-upgrade", storage: safeStorage, version: 1 },
+    {
+      name: "brn-upgrade",
+      storage: safeStorage,
+      version: 2,
+      // v1 guardava skins do catálogo na oferta; agora a oferta vem do inventário Steam.
+      migrate: (persisted) => {
+        const old = (persisted ?? {}) as Partial<UpgradeState>;
+        return { target: old.target ?? null, multiplier: old.multiplier ?? 2, steam: null, offer: [] } as unknown as UpgradeState;
+      },
+    },
   ),
 );

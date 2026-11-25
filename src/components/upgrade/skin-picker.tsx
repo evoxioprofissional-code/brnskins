@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Check, PenLine, Search, X } from "lucide-react";
+import { ArrowLeft, Check, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CategoryId, Skin, VariantType, WearCode } from "@/types/catalog";
 import { CATEGORIES, VARIANT_LABELS, WEAR_COLORS, getRarity, getWear } from "@/config/catalog";
@@ -11,24 +11,19 @@ import { useLockBodyScroll } from "@/hooks/use-lock-body-scroll";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
 import { minPrice, priceFor, skinDisplayName } from "@/lib/skin";
-import { tradeInValue } from "@/lib/upgrade";
 import type { UpgradePick } from "@/stores/upgrade-store";
 
-type Mode = "offer" | "target";
-
+/** Seleção da skin do catálogo que o cliente quer receber no upgrade. */
 interface SkinPickerProps {
   open: boolean;
-  mode: Mode;
   onClose: () => void;
   onPick: (pick: UpgradePick) => void;
-  /** Somente no modo "offer": item informado à mão */
-  onCustom?: (name: string) => void;
 }
 
 const normalize = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[|★™]/g, " ");
 
-export function SkinPicker({ open, mode, onClose, onPick, onCustom }: SkinPickerProps) {
+export function SkinPicker({ open, onClose, onPick }: SkinPickerProps) {
   useLockBodyScroll(open);
   // Cada abertura começa do zero, mesmo se a anterior ainda estiver saindo da tela.
   const [session, setSession] = useState(0);
@@ -53,14 +48,14 @@ export function SkinPicker({ open, mode, onClose, onPick, onCustom }: SkinPicker
             key={`dialog-${session}`}
             role="dialog"
             aria-modal="true"
-            aria-label={mode === "offer" ? "Adicionar skin que você vai entregar" : "Escolher skin que você quer receber"}
+            aria-label="Escolher skin que você quer receber"
             className="fixed inset-x-0 bottom-0 z-[61] flex max-h-[88dvh] flex-col rounded-t-[18px] border border-border-strong bg-bg-soft sm:inset-auto sm:left-1/2 sm:top-1/2 sm:h-[min(640px,86dvh)] sm:w-[600px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[16px]"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: "tween", duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           >
-            <PickerBody mode={mode} onClose={onClose} onPick={onPick} onCustom={onCustom} />
+            <PickerBody onClose={onClose} onPick={onPick} />
           </motion.div>
         </>
       )}
@@ -68,12 +63,11 @@ export function SkinPicker({ open, mode, onClose, onPick, onCustom }: SkinPicker
   );
 }
 
-function PickerBody({ mode, onClose, onPick, onCustom }: Omit<SkinPickerProps, "open">) {
+function PickerBody({ onClose, onPick }: Omit<SkinPickerProps, "open">) {
   const { skins } = useCatalogData();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [selected, setSelected] = useState<Skin | null>(null);
-  const [custom, setCustom] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -94,25 +88,21 @@ function PickerBody({ mode, onClose, onPick, onCustom }: Omit<SkinPickerProps, "
     });
   }, [skins, query, category]);
 
-  const title = mode === "offer" ? "O que você vai entregar?" : "Qual skin você quer?";
 
   return (
     <>
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-        {(selected || custom !== null) && (
+        {selected && (
           <button
             type="button"
-            onClick={() => {
-              setSelected(null);
-              setCustom(null);
-            }}
+            onClick={() => setSelected(null)}
             aria-label="Voltar"
             className="grid size-8 place-items-center rounded-lg text-fg-2 hover:bg-white/5 hover:text-white"
           >
             <ArrowLeft size={18} />
           </button>
         )}
-        <h2 className="flex-1 text-[15.5px] font-bold">{title}</h2>
+        <h2 className="flex-1 text-[15.5px] font-bold">Qual skin você quer?</h2>
         <button
           type="button"
           onClick={onClose}
@@ -124,9 +114,7 @@ function PickerBody({ mode, onClose, onPick, onCustom }: Omit<SkinPickerProps, "
       </div>
 
       {selected ? (
-        <ConfigureStep skin={selected} mode={mode} onConfirm={onPick} />
-      ) : custom !== null ? (
-        <CustomStep value={custom} onChange={setCustom} onConfirm={(name) => onCustom?.(name)} />
+        <ConfigureStep skin={selected} onConfirm={onPick} />
       ) : (
         <>
           <div className="space-y-2.5 px-4 pt-3">
@@ -180,10 +168,7 @@ function PickerBody({ mode, onClose, onPick, onCustom }: Omit<SkinPickerProps, "
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13.5px] font-semibold">{skinDisplayName(s)}</span>
                       <span className="block text-[11.5px] text-muted">
-                        {mode === "offer" ? "Estimativa a partir de " : "A partir de "}
-                        <span className="font-semibold text-fg-2">
-                          {formatBRL(mode === "offer" ? tradeInValue(from) : from)}
-                        </span>
+                        A partir de <span className="font-semibold text-fg-2">{formatBRL(from)}</span>
                       </span>
                     </span>
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
@@ -196,26 +181,14 @@ function PickerBody({ mode, onClose, onPick, onCustom }: Omit<SkinPickerProps, "
             )}
           </ul>
 
-          {mode === "offer" && onCustom && (
-            <div className="border-t border-border p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-              <button
-                type="button"
-                onClick={() => setCustom(query)}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-border-strong text-[13.5px] font-semibold text-fg-2 transition-colors hover:border-primary/60 hover:text-white"
-              >
-                <PenLine size={15} /> Minha skin não está na lista
-              </button>
-            </div>
-          )}
         </>
       )}
     </>
   );
 }
 
-function ConfigureStep({ skin, mode, onConfirm }: { skin: Skin; mode: Mode; onConfirm: (p: UpgradePick) => void }) {
-  // No modo "offer" o cliente pode ter qualquer condição; no "target" só as disponíveis.
-  const offers = mode === "target" ? skin.offers.filter((o) => o.available) : skin.offers;
+function ConfigureStep({ skin, onConfirm }: { skin: Skin; onConfirm: (p: UpgradePick) => void }) {
+  const offers = skin.offers.filter((o) => o.available);
   const [wear, setWear] = useState<WearCode>(offers.find((o) => o.wear === skin.defaultWear)?.wear ?? offers[0]!.wear);
   const [variant, setVariant] = useState<VariantType>("normal");
   const color = getRarity(skin.rarity)?.color ?? "#e60023";
@@ -261,7 +234,7 @@ function ConfigureStep({ skin, mode, onConfirm }: { skin: Skin; mode: Mode; onCo
                   {o.wear}
                 </span>
                 <span className="mt-0.5 text-[10px] text-muted">
-                  {formatBRL(mode === "offer" ? tradeInValue(o.price) : o.price).replace(",00", "")}
+                  {formatBRL(o.price).replace(",00", "")}
                 </span>
               </button>
             );
@@ -293,50 +266,17 @@ function ConfigureStep({ skin, mode, onConfirm }: { skin: Skin; mode: Mode; onCo
       <div className="h-5 shrink-0" />
       <div className="mt-auto flex items-center gap-3 border-t border-border p-4 pb-[max(16px,env(safe-area-inset-bottom))]">
         <div className="flex-1">
-          <p className="text-[11px] text-muted">{mode === "offer" ? "Estimativa de avaliação" : "Preço"}</p>
-          <p className="text-[18px] font-bold">{formatBRL(mode === "offer" ? tradeInValue(price) : price)}</p>
+          <p className="text-[11px] text-muted">Preço</p>
+          <p className="text-[18px] font-bold">{formatBRL(price)}</p>
         </div>
         <button
           type="button"
           onClick={() => onConfirm({ skinId: skin.id, wear, variant })}
           className="btn-solid-red flex h-11 items-center gap-2 rounded-[10px] px-5 text-[14px] font-semibold"
         >
-          <Check size={17} /> {mode === "offer" ? "Adicionar à oferta" : "Definir como alvo"}
+          <Check size={17} /> Definir como alvo
         </button>
       </div>
     </div>
-  );
-}
-
-function CustomStep({ value, onChange, onConfirm }: { value: string; onChange: (v: string) => void; onConfirm: (n: string) => void }) {
-  const valid = value.trim().length >= 3;
-  return (
-    <form
-      className="flex flex-col gap-3 p-4 pb-[max(16px,env(safe-area-inset-bottom))]"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (valid) onConfirm(value);
-      }}
-    >
-      <p className="text-[13px] leading-relaxed text-fg-2">
-        Descreva a skin com nome, condição e detalhes que valorizam o item (float, pattern, adesivos). Nossa equipe avalia
-        e informa o valor pelo WhatsApp.
-      </p>
-      <input
-        autoFocus
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        maxLength={120}
-        placeholder="Ex.: M4A4 | Howl (Minimal Wear), float 0.08"
-        className="h-11 rounded-[10px] border border-border bg-surface px-3 text-[14px] outline-none focus:border-primary/60"
-      />
-      <button
-        type="submit"
-        disabled={!valid}
-        className="btn-solid-red h-11 rounded-[10px] text-[14px] font-semibold disabled:opacity-40"
-      >
-        Adicionar para avaliação
-      </button>
-    </form>
   );
 }

@@ -13,7 +13,7 @@ import { useAdminStore } from "@/stores/admin-store";
 import { toast } from "@/components/ui/toaster";
 import { useAdminData } from "./admin-data-provider";
 import { useQueryParam, useSkinMap } from "./admin-hooks";
-import { DemoNotice, Field, KpiCard, Modal, Panel, PrimaryButton, Table, inputClass } from "./admin-ui";
+import { DemoNotice, Field, KpiCard, KpiStrip, Modal, Panel, PrimaryButton, Table, inputClass } from "./admin-ui";
 
 function PurchaseModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { skins } = useAdminData();
@@ -120,7 +120,7 @@ function SaleModal({ lot, onClose }: { lot: StockLot | null; onClose: () => void
             ))}
           </select>
         </Field>
-        <p className={cn("rounded-[8px] px-3 py-2 text-[13px]", profit >= 0 ? "bg-[#0b2a17] text-[#3ee07a]" : "bg-[#2a0b10] text-[#ff5a6e]")}>
+        <p className={cn("rounded-[8px] px-3 py-2 text-[13px]", profit >= 0 ? "bg-[#0b2a17] text-[#4ade80]" : "bg-[#2a0b10] text-[#ff6b7d]")}>
           {profit >= 0 ? "Lucro" : "Prejuízo"} estimado: {formatBRL(Math.abs(Number.isFinite(profit) ? profit : 0))}
         </p>
         <PrimaryButton
@@ -170,12 +170,12 @@ export function AdminStock() {
   return (
     <div className="space-y-4">
       <DemoNotice />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiStrip>
         <KpiCard label="Unidades em estoque" value={formatInt(sum.units)} icon={Boxes} />
         <KpiCard label="Valor pago (custo)" value={formatBRL(sum.costValue)} icon={Wallet} />
         <KpiCard label="Valor de mercado" value={formatBRL(sum.marketValue)} trend={sum.costValue ? Math.round(((sum.marketValue - sum.costValue) / sum.costValue) * 1000) / 10 : 0} icon={Warehouse} />
         <KpiCard label="Lotes com estoque baixo" value={formatInt(low)} hint="2 unidades ou menos" icon={AlertTriangle} />
-      </div>
+      </KpiStrip>
       <Panel
         title="Inventário"
         icon={Warehouse}
@@ -186,17 +186,17 @@ export function AdminStock() {
         }
       >
         <div className="mb-4 flex flex-wrap gap-2">
-          <label className="flex h-10 min-w-[220px] flex-1 items-center rounded-[8px] border border-[#1d1e22] bg-[#0e0f11] px-3">
-            <Search size={16} className="text-fg-2" />
+          <label className="flex h-9 min-w-[220px] flex-1 items-center rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-3 focus-within:border-white/[0.16]">
+            <Search size={15} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar skin..." className="ml-2 flex-1 bg-transparent text-[13.5px] outline-none" />
           </label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-0.5 rounded-[9px] bg-white/[0.04] p-0.5">
             {([["all", "Todos"], ...Object.entries(STOCK_STATUS).map(([k, v]) => [k, v.label]), ["low", "Estoque baixo"]] as [string, string][]).map(([k, label]) => (
               <button
                 key={k}
                 type="button"
                 onClick={() => setStatus(k as typeof status)}
-                className={cn("h-10 rounded-[8px] border px-3 text-[12.5px] font-semibold transition-colors", status === k ? "border-primary bg-primary/15 text-white" : "border-[#1d1e22] bg-[#0e0f11] text-fg-2 hover:text-fg")}
+                className={cn("h-8 rounded-[7px] px-3 text-[12.5px] font-medium transition-colors", status === k ? "bg-white/[0.1] text-white" : "text-muted hover:text-fg")}
               >
                 {label}
               </button>
@@ -220,8 +220,8 @@ export function AdminStock() {
                 <td className={cn("font-semibold", l.quantity <= 2 && "text-amber-300")}>{formatInt(l.quantity)}</td>
                 <td>{formatBRL(l.unitCost)}</td>
                 <td>{formatBRL(l.marketPrice)}</td>
-                <td className={pct >= 0 ? "text-[#3ee07a]" : "text-[#ff5a6e]"}>
-                  <span className="font-semibold">{pct >= 0 ? "+" : ""}{pct.toFixed(1).replace(".", ",")}%</span>
+                <td className={pct >= 0 ? "text-[#4ade80]" : "text-[#ff6b7d]"}>
+                  <span className="font-medium">{pct >= 0 ? "+" : ""}{pct.toFixed(1).replace(".", ",")}%</span>
                   <span className="block text-[11.5px] opacity-80">{total >= 0 ? "+" : "-"}{formatBRL(Math.abs(total))}</span>
                 </td>
                 <td>
@@ -229,7 +229,7 @@ export function AdminStock() {
                     value={l.status}
                     onChange={(e) => setLotStatus(l.id, e.target.value as StockStatus)}
                     aria-label="Status do lote"
-                    className="h-8 rounded-[6px] border border-[#24252b] bg-[#0e0f12] px-2 text-[12.5px]"
+                    className="h-8 rounded-[6px] border border-transparent bg-transparent px-1.5 text-[12.5px] font-medium outline-none hover:border-white/[0.1] focus:border-primary/60 [&>option]:bg-[#0e0f12]"
                     style={{ color: STOCK_STATUS[l.status].color }}
                   >
                     {Object.entries(STOCK_STATUS).map(([k, v]) => (
@@ -240,7 +240,7 @@ export function AdminStock() {
                   </select>
                 </td>
                 <td>
-                  <button type="button" onClick={() => setSaleLot(l)} className="h-8 rounded-[6px] border border-primary/60 px-3 text-[12px] font-semibold hover:bg-primary/10">
+                  <button type="button" onClick={() => setSaleLot(l)} className="h-8 rounded-[6px] border border-white/[0.1] px-3 text-[12px] font-medium text-fg-2 transition-colors hover:border-white/[0.2] hover:text-white">
                     Vender
                   </button>
                 </td>

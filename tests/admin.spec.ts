@@ -18,8 +18,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("dashboard exibe os painéis principais sem OpenAI", async ({ page }) => {
-  for (const title of ["Desempenho Financeiro", "Resumo do Estoque", "Entradas e Saídas", "Baixas e Altas de Skins", "Recuperação de Clientes", "Integrações"]) {
-    await expect(page.getByRole("heading", { name: new RegExp(title) })).toBeVisible();
+  for (const title of ["Desempenho", "Precisa de atenção", "Estoque", "Caixa", "Clientes"]) {
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
   await expect(page.getByText(/OpenAI|GPT|Assistente IA/i)).toHaveCount(0);
 });

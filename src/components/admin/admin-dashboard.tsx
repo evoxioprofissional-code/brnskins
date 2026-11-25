@@ -1,92 +1,311 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowRightLeft,
-  ArrowUpFromLine,
-  BadgeDollarSign,
-  BarChart3,
-  Bell,
-  CheckCircle2,
-  ChevronRight,
-  Crown,
-  Database,
-  FileDown,
-  Info,
-  Layers,
-  Link2,
-  MessageCircle,
-  MoreVertical,
-  Package,
-  PackagePlus,
-  Plug,
-  RefreshCw,
-  Rocket,
-  Scale,
-  ShoppingBag,
-  Store,
-  Tags,
-  TrendingDown,
-  TrendingUp,
-  UserMinus,
-  UserPlus,
-  UserRound,
-  UsersRound,
-  Wallet,
-  Zap,
-} from "lucide-react";
+import { useId, useMemo, useState, type ReactNode } from "react";
+import { ArrowUpRight, Pencil, Plus } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatBRL, formatInt } from "@/lib/format";
+import { skinDisplayName } from "@/lib/skin";
 import {
   STOCK_STATUS,
   buildAlerts,
   cashFlow,
   clientSummary,
   dailySeries,
+  daysSince,
   financialSummary,
-  priceVariation,
   recoveryQueue,
   stockSummary,
-  subStoreSummary,
   timeAgo,
 } from "@/lib/admin-metrics";
-import { SUB_STORE_PLANS } from "@/data/demo/admin";
+import type { Movement } from "@/types/admin";
 import { useAdminStore } from "@/stores/admin-store";
-import { effectiveWhatsApp, useSettingsStore } from "@/stores/settings-store";
-import { AreaChart, DonutChart } from "./charts";
-import { Badge, KpiCard, OutlineLink, Panel, SelectPill, Toggle, Trend } from "./admin-ui";
+import { AreaChart } from "./charts";
+import { Trend } from "./admin-ui";
 import { useAdminData } from "./admin-data-provider";
 
 const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const dayLabel = (d: Date) => `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]}`;
+const pct = (v: number) => `${v.toFixed(1).replace(".", ",")}%`;
+const DAY = 86_400_000;
 
-function FinancePanel() {
+type Period = "7" | "15" | "30";
+
+/** Unidades vendidas por dia (últimos N dias). */
+function dailyUnits(movements: Movement[], days: number) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const first = start.getTime() - (days - 1) * DAY;
+  const out = Array.from({ length: days }, () => 0);
+  for (const m of movements) {
+    if (m.type !== "out") continue;
+    const t = new Date(m.date);
+    t.setHours(0, 0, 0, 0);
+    const i = Math.round((t.getTime() - first) / DAY);
+    if (i >= 0 && i < days) out[i]! += m.quantity;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ peças */
+
+function Card({ children, className, variant = "default" }: { children: ReactNode; className?: string; variant?: "default" | "red" }) {
+  return <section className={cn(variant === "red" ? "card-premium-red" : "card-premium", "overflow-hidden", className)}>{children}</section>;
+}
+
+function Eyebrow({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-[13px] font-medium text-fg-2">{children}</h2>
+      {action}
+    </div>
+  );
+}
+
+function CornerLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="grid size-7 place-items-center rounded-full border border-white/[0.08] text-muted transition-colors hover:border-white/[0.2] hover:text-white"
+    >
+      <ArrowUpRight size={14} />
+    </Link>
+  );
+}
+
+function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void; label: string }) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex rounded-full border border-white/[0.06] bg-black/30 p-0.5">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "h-6 rounded-full px-2.5 text-[11.5px] font-medium transition-colors",
+            value === o.id ? "bg-white text-black" : "text-muted hover:text-fg",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Área suave que encosta nas bordas do card. */
+function Spark({ values, color, height = 64 }: { values: number[]; color: string; height?: number }) {
+  const id = useId();
+  const max = Math.max(1, ...values);
+  const n = values.length;
+  const pts = values.map((v, i) => [(i / Math.max(1, n - 1)) * 100, height - (v / max) * (height - 6) - 2] as const);
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`).join("");
+  return (
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="block w-full" style={{ height }} aria-hidden>
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={color} stopOpacity="0.35" />
+          <stop offset="1" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${line}L100,${height}L0,${height}Z`} fill={`url(#${id})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Anel de progresso. */
+function Ring({ value, size = 92, stroke = 8, color = "#e60023", children }: { value: number; size?: number; stroke?: number; color?: string; children?: ReactNode }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, value));
+  return (
+    <div className="relative grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90" aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(255 255 255 / 0.06)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - v)}
+          style={{ filter: `drop-shadow(0 0 6px ${color}66)`, transition: "stroke-dashoffset .6s ease" }}
+        />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center text-center">{children}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ cards */
+
+function RevenueHero() {
   const movements = useAdminStore((s) => s.movements);
-  const [days, setDays] = useState<"7" | "15" | "30">("30");
+  const goal = useAdminStore((s) => s.monthlyGoal);
+  const setGoal = useAdminStore((s) => s.setMonthlyGoal);
+  const [editing, setEditing] = useState(false);
+  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+  const series = useMemo(() => dailySeries(movements, 30).map((p) => p.revenue), [movements]);
+  const progress = fin.revenue / Math.max(goal, 1);
+
+  return (
+    <Card variant="red" className="flex flex-col sm:col-span-2 xl:col-span-6 xl:row-span-2">
+      <div className="flex items-start justify-between gap-4 p-6 pb-0">
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium text-[#ffb3be]">Faturamento · 30 dias</p>
+          <p className="mt-2 whitespace-nowrap text-[28px] font-semibold leading-none tracking-[-0.03em] sm:text-[44px]">{formatBRL(fin.revenue)}</p>
+          <div className="mt-3 flex items-center gap-2 text-[12.5px] text-muted">
+            <Trend value={fin.trend.revenue} />
+            <span>vs. 30 dias anteriores</span>
+          </div>
+        </div>
+        <Ring value={progress} size={96} color="#ff2d4b">
+          <span>
+            <span className="block text-[18px] font-semibold leading-none">{Math.round(progress * 100)}%</span>
+            <span className="text-[10.5px] text-muted">da meta</span>
+          </span>
+        </Ring>
+      </div>
+
+      <div className="flex items-center gap-1.5 px-6 pt-3 text-[12px] text-muted">
+        {editing ? (
+          <input
+            autoFocus
+            type="number"
+            min={0}
+            step={1000}
+            defaultValue={goal}
+            aria-label="Meta de faturamento"
+            onBlur={(e) => {
+              setGoal(Math.max(0, Number(e.target.value) || 0));
+              setEditing(false);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            className="h-7 w-[120px] rounded-full border border-white/[0.12] bg-black/30 px-3 text-[12px] text-fg outline-none focus:border-primary/60"
+          />
+        ) : (
+          <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/20 px-3 py-1 hover:text-fg">
+            Meta mensal {formatBRL(goal).replace(",00", "")} <Pencil size={11} />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-auto pt-6">
+        <Spark values={series} color="#ff2d4b" height={120} />
+      </div>
+    </Card>
+  );
+}
+
+function ProfitCard() {
+  const movements = useAdminStore((s) => s.movements);
+  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+  const series = useMemo(() => dailySeries(movements, 30).map((p) => p.profit), [movements]);
+  return (
+    <Card className="flex flex-col xl:col-span-3">
+      <div className="p-5 pb-2">
+        <Eyebrow>Lucro líquido</Eyebrow>
+        <p className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">{formatBRL(fin.profit)}</p>
+        <Trend value={fin.trend.profit} />
+      </div>
+      <div className="mt-auto">
+        <Spark values={series} color="#22c55e" height={56} />
+      </div>
+    </Card>
+  );
+}
+
+function SalesCard() {
+  const movements = useAdminStore((s) => s.movements);
+  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+  const bars = useMemo(() => dailyUnits(movements, 14), [movements]);
+  const max = Math.max(1, ...bars);
+  return (
+    <Card className="flex flex-col p-5 xl:col-span-3">
+      <Eyebrow>Skins vendidas</Eyebrow>
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className="text-[24px] font-semibold tracking-[-0.02em]">{formatInt(fin.sales)}</p>
+        <Trend value={fin.trend.sales} />
+      </div>
+      <div className="mt-auto flex h-[52px] items-end gap-[3px] pt-3" aria-label="Vendas por dia, últimos 14 dias">
+        {bars.map((v, i) => (
+          <span
+            key={i}
+            className={cn("flex-1 rounded-t-[3px]", i === bars.length - 1 ? "bg-white" : "bg-white/[0.14]")}
+            style={{ height: `${Math.max(6, (v / max) * 100)}%` }}
+            title={`${v} vendidas`}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function MarginCard() {
+  const movements = useAdminStore((s) => s.movements);
+  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+  return (
+    <Card className="flex items-center gap-4 p-5 xl:col-span-3">
+      <Ring value={fin.margin / 100} size={84} stroke={7} color="#f5f5f5">
+        <span className="text-[16px] font-semibold">{pct(fin.margin)}</span>
+      </Ring>
+      <div className="min-w-0">
+        <Eyebrow>Margem média</Eyebrow>
+        <p className="mt-1 text-[12px] leading-snug text-muted">Quanto sobra de cada venda depois do custo.</p>
+        <div className="mt-1.5 flex items-center gap-1 text-[12px]">
+          <Trend value={fin.trend.margin} suffix=" p.p." />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TicketCard() {
+  const movements = useAdminStore((s) => s.movements);
+  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+  const ticket = fin.sales ? fin.revenue / fin.sales : 0;
+  return (
+    <Card className="relative flex flex-col justify-between p-5 xl:col-span-3">
+      <span aria-hidden className="pointer-events-none absolute -right-6 -top-6 size-28 rounded-full border border-white/[0.05]" />
+      <span aria-hidden className="pointer-events-none absolute -right-1 -top-1 size-16 rounded-full border border-white/[0.06]" />
+      <Eyebrow>Ticket médio</Eyebrow>
+      <div>
+        <p className="mt-2 text-[24px] font-semibold tracking-[-0.02em]">{formatBRL(ticket)}</p>
+        <p className="text-[12px] text-muted">por skin vendida</p>
+      </div>
+    </Card>
+  );
+}
+
+function RevenueChart() {
+  const movements = useAdminStore((s) => s.movements);
+  const [days, setDays] = useState<Period>("30");
   const series = useMemo(() => dailySeries(movements, Number(days)), [movements, days]);
   return (
-    <Panel
-      title="Desempenho Financeiro"
-      icon={BarChart3}
-      className="xl:col-span-5"
-      actions={
-        <>
-          <span className="mr-1 hidden items-center gap-3 text-[12px] text-fg-2 sm:flex">
-            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#ff1f3d]" />Faturamento</span>
-            <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-full bg-[#22c55e]" />Lucro</span>
-          </span>
-          <SelectPill
-            label="Período"
-            value={days}
-            onChange={setDays}
-            options={[{ id: "7", label: "Últimos 7 dias" }, { id: "15", label: "Últimos 15 dias" }, { id: "30", label: "Últimos 30 dias" }]}
-          />
-        </>
-      }
-    >
+    <Card className="p-5 xl:col-span-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-semibold">Desempenho</h2>
+          <p className="mt-0.5 flex items-center gap-3 text-[12px] text-muted">
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#ff1f3d]" />Faturamento</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-[#22c55e]" />Lucro</span>
+          </p>
+        </div>
+        <Segmented
+          label="Período"
+          value={days}
+          onChange={setDays}
+          options={[{ id: "7", label: "7 dias" }, { id: "15", label: "15 dias" }, { id: "30", label: "30 dias" }]}
+        />
+      </div>
       <AreaChart
         ariaLabel={`Faturamento e lucro diários dos últimos ${days} dias`}
         labels={series.map((p) => dayLabel(p.date))}
@@ -94,368 +313,245 @@ function FinancePanel() {
           { key: "rev", label: "Faturamento", color: "#ff1f3d", values: series.map((p) => p.revenue) },
           { key: "pro", label: "Lucro", color: "#22c55e", values: series.map((p) => p.profit) },
         ]}
-        height={190}
+        height={250}
       />
-    </Panel>
+    </Card>
   );
 }
 
-function StockPanel() {
-  const stock = useAdminStore((s) => s.stock);
-  const sum = useMemo(() => stockSummary(stock), [stock]);
-  return (
-    <Panel title="Resumo do Estoque" icon={Package} className="xl:col-span-4" actions={<OutlineLink href="/admin/estoque">Gerenciar Estoque</OutlineLink>}>
-      <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-7">
-        <DonutChart
-          total={formatInt(sum.units)}
-          caption="Skins"
-          segments={sum.byStatus.map((b) => ({ label: STOCK_STATUS[b.status].label, value: b.qty, color: STOCK_STATUS[b.status].color }))}
-        />
-        <ul className="w-full flex-1 space-y-[14px] text-[13.5px]">
-          {sum.byStatus.map((b) => (
-            <li key={b.status} className="flex items-center gap-2.5">
-              <span className="size-[10px] rounded-full" style={{ background: STOCK_STATUS[b.status].color }} />
-              <span className="flex-1 text-fg">{STOCK_STATUS[b.status].label}</span>
-              <span className="font-semibold">{formatInt(b.qty)}</span>
-              <span className="w-[52px] text-right text-fg-2">({b.pct.toFixed(1).replace(".", ",")}%)</span>
-            </li>
-          ))}
-          <li className="flex justify-between border-t border-[#17181c] pt-3 text-[12.5px] text-fg-2">
-            Valor de mercado <span className="font-semibold text-fg">{formatBRL(sum.marketValue)}</span>
-          </li>
-        </ul>
-      </div>
-    </Panel>
-  );
-}
+const TONE = { danger: "#ff3b4f", warning: "#f59e0b", info: "#38bdf8", success: "#22c55e" } as const;
 
-function QuickActionsPanel() {
-  const movements = useAdminStore((s) => s.movements);
-  const goal = useAdminStore((s) => s.monthlyGoal);
-  const setGoal = useAdminStore((s) => s.setMonthlyGoal);
-  const revenue = useMemo(() => financialSummary(movements, 30).revenue, [movements]);
-  const pct = Math.min(100, (revenue / Math.max(goal, 1)) * 100);
-  const actions = [
-    { label: "Registrar compra de skins", icon: PackagePlus, href: "/admin/estoque?acao=compra" },
-    { label: "Registrar venda", icon: ShoppingBag, href: "/admin/estoque" },
-    { label: "Criar nova sub-loja", icon: Store, href: "/admin/sub-lojas?acao=nova" },
-    { label: "Recuperar clientes inativos", icon: MessageCircle, href: "/admin/automacao" },
-    { label: "Ajustar preços", icon: Tags, href: "/admin/precos" },
-    { label: "Exportar relatórios", icon: FileDown, href: "/admin/relatorios" },
-  ];
-  return (
-    <Panel
-      title="Ações rápidas"
-      icon={Zap}
-      className="xl:col-span-3 xl:row-span-2"
-      actions={<span className="flex items-center gap-1.5 text-[12px] font-semibold text-success"><span className="size-2 rounded-full bg-success" />Online</span>}
-      bodyClassName="flex flex-col"
-    >
-      <ul className="space-y-[9px]">
-        {actions.map((a) => (
-          <li key={a.label}>
-            <Link
-              href={a.href}
-              className="group flex h-[40px] items-center gap-3 rounded-[10px] border border-[#18191d] bg-[#0d0e11] px-3 text-[13.5px] transition-colors hover:border-primary/50 hover:bg-[#14080b]"
-            >
-              <a.icon size={17} strokeWidth={1.8} className="text-fg-2 group-hover:text-primary" />
-              <span className="flex-1">{a.label}</span>
-              <ChevronRight size={15} className="text-faint group-hover:text-fg" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-auto pt-5">
-        <div className="rounded-[12px] border border-[#18191d] bg-[#0d0e11] p-3.5">
-          <div className="flex items-center justify-between text-[12.5px]">
-            <span className="flex items-center gap-2 font-semibold"><Rocket size={15} className="text-primary" />Meta de faturamento (30 dias)</span>
-          </div>
-          <p className="mt-2 text-[20px] font-bold tracking-[-0.01em]">{formatBRL(revenue)}</p>
-          <div className="mt-2 h-[8px] overflow-hidden rounded-full bg-[#1a1b20]" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label="Progresso da meta">
-            <div className="h-full rounded-full bg-[linear-gradient(90deg,#b5001b,#ff1238)] shadow-[0_0_10px_rgb(230_0_35/0.6)]" style={{ width: `${pct}%` }} />
-          </div>
-          <label className="mt-2 flex items-center justify-between gap-2 text-[12px] text-fg-2">
-            {pct.toFixed(0)}% de
-            <input
-              type="number"
-              min={0}
-              step={1000}
-              value={goal}
-              onChange={(e) => setGoal(Math.max(0, Number(e.target.value) || 0))}
-              aria-label="Meta de faturamento"
-              className="h-7 w-[110px] rounded-[6px] border border-[#24252b] bg-[#0a0b0d] px-2 text-right text-[12px] text-fg outline-none focus:border-primary/60"
-            />
-          </label>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
-function CashFlowPanel() {
-  const movements = useAdminStore((s) => s.movements);
-  const [days, setDays] = useState<"7" | "15" | "30">("7");
-  const flow = useMemo(() => cashFlow(movements, Number(days)), [movements, days]);
-  return (
-    <Panel
-      title="Entradas e Saídas"
-      icon={ArrowRightLeft}
-      className="xl:col-span-3"
-      actions={<SelectPill label="Período" value={days} onChange={setDays} options={[{ id: "7", label: "7 dias" }, { id: "15", label: "15 dias" }, { id: "30", label: "30 dias" }]} />}
-    >
-      <ul className="text-[13.5px]">
-        <li className="flex items-center gap-3 border-b border-[#141519] pb-3">
-          <ArrowDownToLine size={18} className="text-success" />
-          <span className="flex-1">Entradas (compras)</span>
-          <span className="font-semibold">{formatBRL(flow.purchases)}</span>
-        </li>
-        <li className="flex items-center gap-3 border-b border-[#141519] py-3">
-          <ArrowUpFromLine size={18} className="text-[#ff3b4f]" />
-          <span className="flex-1">Saídas (vendas)</span>
-          <span className="font-semibold">{formatBRL(flow.sales)}</span>
-        </li>
-        <li className="flex items-center gap-3 pt-3.5">
-          <Scale size={18} className="text-fg-2" />
-          <span className="flex-1 font-semibold">Resultado</span>
-          <span className={cn("text-[19px] font-bold", flow.result >= 0 ? "text-[#3ee07a]" : "text-[#ff5a6e]")}>
-            {flow.result >= 0 ? "+ " : "- "}
-            {formatBRL(Math.abs(flow.result))}
-          </span>
-        </li>
-      </ul>
-    </Panel>
-  );
-}
-
-function VariationPanel() {
-  const stock = useAdminStore((s) => s.stock);
-  const v = useMemo(() => priceVariation(stock), [stock]);
-  return (
-    <Panel title={<Link href="/admin/financeiro/variacoes" className="hover:text-white">Baixas e Altas de Skins</Link>} icon={TrendingUp} className="xl:col-span-3">
-      <div className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-[10px] border border-[#14532d]/70 bg-[#0a1f12] p-3">
-          <p className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px] text-fg-2"><TrendingUp size={14} className="text-success" />Altas (valorização)</p>
-          <p className="mt-1.5 whitespace-nowrap text-[15px] font-bold text-[#3ee07a]">+ {formatBRL(v.gain)}</p>
-          <p className="text-[12px] text-[#3ee07a]/90">↑ {formatInt(v.upUnits)} skins</p>
-        </div>
-        <div className="rounded-[10px] border border-[#5a0c18]/80 bg-[#22070c] p-3">
-          <p className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px] text-fg-2"><TrendingDown size={14} className="text-[#ff3b4f]" />Baixas (desvalor.)</p>
-          <p className="mt-1.5 whitespace-nowrap text-[15px] font-bold text-[#ff5a6e]">- {formatBRL(Math.abs(v.loss))}</p>
-          <p className="text-[12px] text-[#ff5a6e]/90">↓ {formatInt(v.downUnits)} skins</p>
-        </div>
-      </div>
-      <p className="mt-3 rounded-[10px] border border-[#18191d] bg-[#0d0e11] px-3 py-2 text-center text-[13px]">
-        Resultado vs. preço pago:{" "}
-        <span className={cn("font-bold", v.result >= 0 ? "text-[#3ee07a]" : "text-[#ff5a6e]")}>
-          {v.result >= 0 ? "+ " : "- "}
-          {formatBRL(Math.abs(v.result))}
-        </span>
-      </p>
-    </Panel>
-  );
-}
-
-function SubStoresPanel() {
-  const subStores = useAdminStore((s) => s.subStores);
-  const sum = subStoreSummary(subStores);
-  return (
-    <Panel
-      title="Sub-Lojas"
-      icon={Store}
-      className="xl:col-span-3"
-      actions={
-        <Link href="/admin/sub-lojas?acao=nova" className="btn-solid-red inline-flex h-[30px] items-center whitespace-nowrap rounded-[8px] px-3 text-[12.5px] font-semibold">
-          Nova Sub-Loja
-        </Link>
-      }
-    >
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-[10px] bg-[#0d0e11] p-2">
-          <p className="text-[16px] font-bold">{sum.active}</p>
-          <p className="text-[10.5px] text-fg-2">ativas</p>
-        </div>
-        <div className="rounded-[10px] bg-[#0d0e11] p-2">
-          <p className="text-[15px] font-bold">{formatBRL(sum.mrr).replace(",00", "")}</p>
-          <p className="text-[10.5px] text-fg-2">receita/mês</p>
-        </div>
-        <div className="rounded-[10px] bg-[#0d0e11] p-2">
-          <p className={cn("text-[16px] font-bold", sum.pending ? "text-amber-300" : "")}>{sum.pending}</p>
-          <p className="text-[10.5px] text-fg-2">aguardando</p>
-        </div>
-      </div>
-      <ul className="mt-2.5 text-[12.5px]">
-        {subStores.slice(0, 3).map((s) => (
-          <li key={s.id} className="flex items-center gap-2 border-b border-[#141519] py-2 last:border-0">
-            <span className="flex-1 truncate text-fg-2">/loja/{s.slug}</span>
-            {s.status === "active" ? <Badge tone="success">Ativa</Badge> : s.status === "pending" ? <Badge tone="warning">Pagamento</Badge> : <Badge tone="danger">Suspensa</Badge>}
-            <span className="w-[92px] text-right font-semibold">{formatBRL(SUB_STORE_PLANS[s.plan].price).replace(",00", "")}/mês</span>
-            <Link href="/admin/sub-lojas" aria-label={`Gerenciar ${s.name}`} className="text-fg-2 hover:text-fg">
-              <MoreVertical size={15} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
-
-function ClientsPanel() {
-  const clients = useAdminStore((s) => s.clients);
-  const sum = useMemo(() => clientSummary(clients), [clients]);
-  const rows = [
-    { icon: UsersRound, label: "Clientes totais", value: formatInt(sum.total) },
-    { icon: UserRound, label: "Clientes ativos (30 dias)", value: formatInt(sum.active) },
-    { icon: UserPlus, label: "Novos clientes (30 dias)", value: formatInt(sum.newOnes) },
-    { icon: UserMinus, label: "Clientes inativos (+60 dias)", value: formatInt(sum.inactive), danger: true },
-  ];
-  return (
-    <Panel title="Clientes" icon={UsersRound} className="xl:col-span-3" actions={<OutlineLink href="/admin/clientes">Ver todos</OutlineLink>}>
-      <ul className="text-[13px]">
-        {rows.map((r) => (
-          <li key={r.label} className="flex items-center gap-3 border-b border-[#141519] py-[9px] first:pt-0">
-            <r.icon size={17} strokeWidth={1.8} className="text-fg-2" />
-            <span className="flex-1">{r.label}</span>
-            <span className={cn("font-bold", r.danger && "text-[#ff5a6e]")}>{r.value}</span>
-          </li>
-        ))}
-        {sum.top && (
-          <li className="flex items-center gap-3 pt-[10px]">
-            <Crown size={17} strokeWidth={1.8} className="text-amber-300" />
-            <span className="flex-1">Top cliente <span className="text-fg-2">@{sum.top.handle}</span></span>
-            <span className="font-bold">{formatBRL(sum.top.totalSpent)}</span>
-          </li>
-        )}
-      </ul>
-    </Panel>
-  );
-}
-
-function RecoveryPanel() {
-  const rules = useAdminStore((s) => s.rules);
-  const clients = useAdminStore((s) => s.clients);
-  const enabled = useAdminStore((s) => s.recoveryEnabled);
-  const setEnabled = useAdminStore((s) => s.setRecoveryEnabled);
-  const queue = useMemo(() => recoveryQueue(clients, rules), [clients, rules]);
-  return (
-    <Panel
-      title={
-        <span>
-          Recuperação de Clientes
-          <span className="block text-[12px] font-normal text-fg-2">Automação de reengajamento</span>
-        </span>
-      }
-      icon={RefreshCw}
-      className="xl:col-span-3"
-      actions={<Toggle checked={enabled} onChange={setEnabled} label="Ativar recuperação automática" />}
-      bodyClassName="flex flex-col"
-    >
-      <ul className="space-y-[7px] text-[13px]">
-        {rules.map((r) => (
-          <li key={r.id} className="flex items-center gap-2.5">
-            <MessageCircle size={17} className="shrink-0 text-success" />
-            <span className="flex-1 leading-tight">{r.label}</span>
-            {r.enabled && enabled ? <Badge tone="success">Ativo</Badge> : <Badge tone="neutral">Pausado</Badge>}
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-[12px] text-fg-2">
-        <span className="font-semibold text-fg">{queue.length}</span> clientes na fila de recuperação
-      </p>
-      <Link
-        href="/admin/automacao"
-        className="mt-auto inline-flex h-[36px] items-center justify-center gap-2 rounded-[8px] border border-primary/70 text-[13px] font-semibold transition-colors hover:bg-primary/10"
-        style={{ marginTop: 12 }}
-      >
-        Configurar Automação
-      </Link>
-    </Panel>
-  );
-}
-
-const ALERT_ICON = {
-  danger: { icon: AlertTriangle, cls: "text-[#ff3b4f]" },
-  info: { icon: Info, cls: "text-sky-400" },
-  success: { icon: CheckCircle2, cls: "text-success" },
-  warning: { icon: Zap, cls: "text-amber-300" },
-};
-
-function AlertsPanel() {
+function AttentionCard() {
   const { skins } = useAdminData();
   const stock = useAdminStore((s) => s.stock);
   const clients = useAdminStore((s) => s.clients);
   const subStores = useAdminStore((s) => s.subStores);
-  const alerts = useMemo(() => buildAlerts({ stock, clients, subStores, skins: new Map(skins.map((s) => [s.id, s])) }), [stock, clients, subStores, skins]);
-  return (
-    <Panel title="Últimos Alertas" icon={Bell} className="xl:col-span-3" actions={<OutlineLink href="/admin/estoque">Ver estoque</OutlineLink>}>
-      <ul className="text-[13px]">
-        {alerts.slice(0, 4).map((a) => {
-          const I = ALERT_ICON[a.kind];
-          return (
-            <li key={a.id}>
-              <Link href={a.href ?? "/admin"} className="flex items-start gap-2.5 border-b border-[#141519] py-[9px] first:pt-0 hover:text-white">
-                <I.icon size={17} className={cn("mt-[1px] shrink-0", I.cls)} />
-                <span className="flex-1 leading-snug">{a.message}</span>
-                <span className="shrink-0 text-[11.5px] text-faint">{timeAgo(a.date)}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </Panel>
+  const alerts = useMemo(
+    () => buildAlerts({ stock, clients, subStores, skins: new Map(skins.map((s) => [s.id, s])) }).filter((a) => a.kind !== "success"),
+    [stock, clients, subStores, skins],
   );
-}
-
-function IntegrationsPanel() {
-  const whatsapp = useSettingsStore((s) => s.whatsapp);
-  const items = [
-    { icon: MessageCircle, label: "WhatsApp (link de pedidos)", ok: Boolean(effectiveWhatsApp(whatsapp)), href: "/admin/whatsapp" },
-    { icon: Plug, label: "API do WhatsApp (automações)", ok: false, href: "/admin/automacao" },
-    { icon: Wallet, label: "Gateway de pagamento", ok: false, href: "/admin/sub-lojas" },
-    { icon: Database, label: "Supabase (banco)", ok: false, href: "/admin/configuracoes" },
-  ];
   return (
-    <Panel title="Integrações" icon={Link2} className="xl:col-span-3" actions={<OutlineLink href="/admin/configuracoes">Gerenciar</OutlineLink>}>
-      <ul className="text-[13px]">
-        {items.map((i) => (
-          <li key={i.label}>
-            <Link href={i.href} className="flex items-center gap-3 border-b border-[#141519] py-[9px] first:pt-0 last:border-0">
-              <i.icon size={18} strokeWidth={1.8} className={i.ok ? "text-success" : "text-fg-2"} />
-              <span className="flex-1">{i.label}</span>
-              {i.ok ? <Badge tone="success">Conectado</Badge> : <Badge tone="warning">Pendente</Badge>}
+    <Card className="flex flex-col p-5 xl:col-span-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold">Precisa de atenção</h2>
+        <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary px-2 text-[11.5px] font-semibold">{alerts.length}</span>
+      </div>
+      <ol className="relative mt-4 flex-1 space-y-1 before:absolute before:bottom-3 before:left-[5px] before:top-3 before:w-px before:bg-white/[0.07]">
+        {alerts.slice(0, 5).map((a) => (
+          <li key={a.id} className="relative">
+            <Link href={a.href ?? "/admin"} className="group flex gap-3.5 rounded-[10px] py-2 pr-2 transition-colors hover:bg-white/[0.025]">
+              <span
+                className="relative z-10 mt-[5px] size-[11px] shrink-0 rounded-full border-2 border-[#0c0d10]"
+                style={{ background: TONE[a.kind], boxShadow: `0 0 10px ${TONE[a.kind]}88` }}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] leading-snug text-fg group-hover:text-white">{a.message}</span>
+                <span className="text-[11.5px] text-faint">{timeAgo(a.date)}</span>
+              </span>
             </Link>
           </li>
         ))}
-      </ul>
-    </Panel>
+        {!alerts.length && <li className="py-8 text-center text-[13px] text-muted">Nada pendente agora.</li>}
+      </ol>
+    </Card>
   );
 }
 
-export function AdminDashboard() {
-  const movements = useAdminStore((s) => s.movements);
-  const fin = useMemo(() => financialSummary(movements, 30), [movements]);
+function StockShowcase() {
+  const { skins } = useAdminData();
+  const stock = useAdminStore((s) => s.stock);
+  const sum = useMemo(() => stockSummary(stock), [stock]);
+  const top = useMemo(() => {
+    const map = new Map(skins.map((s) => [s.id, s]));
+    return [...stock]
+      .sort((a, b) => b.marketPrice * b.quantity - a.marketPrice * a.quantity)
+      .flatMap((l) => {
+        const skin = map.get(l.skinId);
+        return skin ? [{ lot: l, skin }] : [];
+      })
+      .filter((v, i, arr) => arr.findIndex((x) => x.skin.id === v.skin.id) === i)
+      .slice(0, 3);
+  }, [stock, skins]);
+
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Faturamento (30 dias)" value={formatBRL(fin.revenue)} trend={fin.trend.revenue} icon={Wallet} />
-        <KpiCard label="Lucro Líquido" value={formatBRL(fin.profit)} trend={fin.trend.profit} icon={BadgeDollarSign} />
-        <KpiCard label="Vendas" value={formatInt(fin.sales)} trend={fin.trend.sales} icon={Package} />
-        <KpiCard label="Margem Média" value={`${fin.margin.toFixed(1).replace(".", ",")}%`} trend={fin.trend.margin} icon={Layers} />
+    <Card className="flex flex-col xl:col-span-5">
+      <div className="p-5 pb-0">
+        <Eyebrow action={<CornerLink href="/admin/estoque" label="Abrir estoque" />}>Estoque</Eyebrow>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3">
+          <p className="text-[24px] font-semibold tracking-[-0.02em]">{formatBRL(sum.marketValue)}</p>
+          <p className="text-[12.5px] text-muted">{formatInt(sum.units)} skins em estoque</p>
+        </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-12">
-        <FinancePanel />
-        <StockPanel />
-        <QuickActionsPanel />
-        <CashFlowPanel />
-        <VariationPanel />
-        <SubStoresPanel />
-        <ClientsPanel />
-        <RecoveryPanel />
-        <AlertsPanel />
-        <IntegrationsPanel />
+
+      <div className="relative mx-5 mt-4 grid grid-cols-3 gap-2">
+        {top.map(({ lot, skin }, i) => (
+          <div
+            key={lot.id}
+            className={cn(
+              "relative overflow-hidden rounded-[12px] border border-white/[0.06] bg-[radial-gradient(circle_at_50%_30%,#1a1b20,#0a0b0d_75%)] p-2",
+              i === 0 && "border-white/[0.12]",
+            )}
+          >
+            <div className="relative h-[60px]">
+              <Image src={skin.image} alt="" fill sizes="160px" className="object-contain drop-shadow-[0_8px_10px_rgb(0_0_0/0.7)]" />
+            </div>
+            <p className="mt-1.5 truncate text-[11px] text-muted">{skinDisplayName(skin)}</p>
+            <p className="text-[12.5px] font-semibold">{formatBRL(lot.marketPrice).replace(/,\d\d$/, "")}</p>
+          </div>
+        ))}
       </div>
-      <p className="text-center text-[11.5px] text-faint">
-        Dados demonstrativos — painel ainda não conectado ao banco. Os indicadores comparam com os 30 dias anteriores.
+
+      <div className="mt-auto p-5 pt-4">
+        <div className="flex h-2 gap-[3px] overflow-hidden rounded-full" aria-hidden>
+          {sum.byStatus.map((b) => (
+            <span key={b.status} className="rounded-full" style={{ width: `${b.pct}%`, background: STOCK_STATUS[b.status].color }} />
+          ))}
+        </div>
+        <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted">
+          {sum.byStatus.map((b) => (
+            <li key={b.status} className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full" style={{ background: STOCK_STATUS[b.status].color }} />
+              {STOCK_STATUS[b.status].label} <span className="text-fg">{formatInt(b.qty)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
+}
+
+function CashCard() {
+  const movements = useAdminStore((s) => s.movements);
+  const [days, setDays] = useState<Period>("7");
+  const flow = useMemo(() => cashFlow(movements, Number(days)), [movements, days]);
+  const total = Math.max(1, flow.sales + flow.purchases);
+  return (
+    <Card className="flex flex-col p-5 xl:col-span-4">
+      <Eyebrow
+        action={<Segmented label="Período do caixa" value={days} onChange={setDays} options={[{ id: "7", label: "7d" }, { id: "15", label: "15d" }, { id: "30", label: "30d" }]} />}
+      >
+        Caixa
+      </Eyebrow>
+      <p className={cn("mt-2 text-[24px] font-semibold tracking-[-0.02em]", flow.result >= 0 ? "text-[#4ade80]" : "text-[#ff6b7d]")}>
+        {flow.result >= 0 ? "+" : "−"} {formatBRL(Math.abs(flow.result))}
       </p>
+      <p className="text-[12px] text-muted">resultado do período</p>
+
+      <div className="mt-auto space-y-3 pt-5">
+        {[
+          { label: "Entrou (vendas)", value: flow.sales, color: "#22c55e" },
+          { label: "Saiu (compras)", value: flow.purchases, color: "#ff3b4f" },
+        ].map((r) => (
+          <div key={r.label}>
+            <div className="flex justify-between text-[12.5px]">
+              <span className="text-muted">{r.label}</span>
+              <span className="font-medium tabular-nums">{formatBRL(r.value)}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
+              <div className="h-full rounded-full" style={{ width: `${(r.value / total) * 100}%`, background: r.color }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+const AVATAR_BG = ["#3b0a12", "#0f2a1a", "#10223a", "#2d1a05", "#241336"];
+
+function ClientsCard() {
+  const clients = useAdminStore((s) => s.clients);
+  const rules = useAdminStore((s) => s.rules);
+  const sum = useMemo(() => clientSummary(clients), [clients]);
+  const queue = useMemo(() => recoveryQueue(clients, rules), [clients, rules]);
+  const recent = useMemo(
+    () => [...clients].sort((a, b) => daysSince(a.lastPurchaseAt) - daysSince(b.lastPurchaseAt)).slice(0, 5),
+    [clients],
+  );
+  return (
+    <Card className="flex flex-col p-5 xl:col-span-3">
+      <Eyebrow action={<CornerLink href="/admin/clientes" label="Abrir clientes" />}>Clientes</Eyebrow>
+      <div className="mt-3 flex -space-x-2">
+        {recent.map((c, i) => (
+          <span
+            key={c.id}
+            title={c.name}
+            className="grid size-9 place-items-center rounded-full border-2 border-[#0c0d10] text-[11px] font-semibold text-white/90"
+            style={{ background: AVATAR_BG[i % AVATAR_BG.length] }}
+          >
+            {c.name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+          </span>
+        ))}
+        {sum.total > recent.length && (
+          <span className="grid size-9 place-items-center rounded-full border-2 border-[#0c0d10] bg-white/[0.08] text-[11px] font-medium text-muted">
+            +{sum.total - recent.length}
+          </span>
+        )}
+      </div>
+      <p className="mt-3 text-[24px] font-semibold tracking-[-0.02em]">
+        {formatInt(sum.active)}
+        <span className="ml-1.5 text-[13px] font-normal text-muted">ativos de {formatInt(sum.total)}</span>
+      </p>
+      <p className="mt-1 text-[12px] text-muted">
+        <span className="text-fg">{formatInt(sum.newOnes)}</span> novos ·{" "}
+        <span className={sum.inactive ? "text-[#ff6b7d]" : "text-fg"}>{formatInt(sum.inactive)}</span> inativos há +60 dias
+      </p>
+      <Link
+        href="/admin/automacao"
+        className="mt-auto flex items-center justify-between rounded-[10px] border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[12.5px] transition-colors hover:border-white/[0.14]"
+        style={{ marginTop: "auto" }}
+      >
+        <span className="text-muted">
+          <span className="font-medium text-fg">{formatInt(queue.length)}</span> para recuperar
+        </span>
+        <ArrowUpRight size={14} className="text-muted" />
+      </Link>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ página */
+
+export function AdminDashboard() {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-muted">Últimos 30 dias, comparados aos 30 anteriores.</p>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/sub-lojas?acao=nova"
+            className="inline-flex h-9 items-center rounded-full border border-white/[0.1] px-4 text-[13px] font-medium text-fg-2 transition-colors hover:border-white/[0.2] hover:text-white"
+          >
+            Nova sub-loja
+          </Link>
+          <Link
+            href="/admin/estoque?acao=compra"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-semibold text-white shadow-[0_8px_24px_-10px_rgb(230_0_35/0.9)] transition-colors hover:bg-primary-hover"
+          >
+            <Plus size={15} /> Registrar compra
+          </Link>
+        </div>
+      </div>
+
+      {/* Bento: destaque + 4 indicadores com formatos diferentes */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:auto-rows-[minmax(150px,auto)] xl:grid-cols-12">
+        <RevenueHero />
+        <ProfitCard />
+        <SalesCard />
+        <MarginCard />
+        <TicketCard />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        <RevenueChart />
+        <AttentionCard />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-12">
+        <StockShowcase />
+        <CashCard />
+        <ClientsCard />
+      </div>
     </div>
   );
 }

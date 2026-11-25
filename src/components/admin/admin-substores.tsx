@@ -11,7 +11,7 @@ import { useAdminStore } from "@/stores/admin-store";
 import { buildWhatsAppUrl } from "@/services/checkout/whatsapp";
 import { toast } from "@/components/ui/toaster";
 import { useQueryParam } from "./admin-hooks";
-import { Badge, DemoNotice, Field, KpiCard, Modal, Panel, PrimaryButton, Table, inputClass } from "./admin-ui";
+import { Badge, DemoNotice, Field, KpiCard, KpiStrip, Modal, Panel, PrimaryButton, Table, inputClass } from "./admin-ui";
 
 const slugify = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 32);
@@ -72,7 +72,7 @@ function NewSubStoreModal({ open, onClose }: { open: boolean; onClose: () => voi
                 key={p}
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, plan: p }))}
-                className={cn("rounded-[10px] border px-2 py-2.5 text-center", form.plan === p ? "border-primary bg-primary/15" : "border-[#24252b] bg-[#0e0f12]")}
+                className={cn("rounded-[10px] border px-2 py-2.5 text-center", form.plan === p ? "border-primary bg-primary/15" : "border-white/[0.08] bg-[#0e0f12]")}
               >
                 <span className="block text-[13px] font-semibold">{SUB_STORE_PLANS[p].label}</span>
                 <span className="block text-[11.5px] text-fg-2">{formatBRL(SUB_STORE_PLANS[p].price).replace(",00", "")}/mês</span>
@@ -106,16 +106,16 @@ export function AdminSubStores() {
         Fluxo pronto para venda automática: ao conectar o gateway de pagamento, a confirmação do pagamento libera a loja do revendedor
         sozinha. Até lá, use “Confirmar pagamento” para simular essa liberação.
       </DemoNotice>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <KpiStrip>
         <KpiCard label="Sub-lojas ativas" value={String(sum.active)} icon={Store} />
         <KpiCard label="Receita recorrente (mês)" value={formatBRL(sum.mrr)} icon={CircleDollarSign} />
         <KpiCard label="Aguardando pagamento" value={String(sum.pending)} icon={Clock} />
-      </div>
+      </KpiStrip>
 
       <div className="grid gap-4 md:grid-cols-3">
         {(Object.keys(SUB_STORE_PLANS) as SubStorePlan[]).map((p) => (
-          <div key={p} className="rounded-[14px] border border-[#17181c] bg-[radial-gradient(70%_80%_at_100%_0%,rgb(230_0_35/0.14),transparent_60%),#0a0b0d] p-4">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-primary">Plano {SUB_STORE_PLANS[p].label}</p>
+          <div key={p} className="rounded-[14px] border border-white/[0.06] bg-[radial-gradient(70%_80%_at_100%_0%,rgb(230_0_35/0.14),transparent_60%),#0a0b0d] p-4">
+            <p className="text-[12.5px] text-muted">Plano {SUB_STORE_PLANS[p].label}</p>
             <p className="mt-1 text-[22px] font-bold">
               {formatBRL(SUB_STORE_PLANS[p].price).replace(",00", "")}
               <span className="text-[13px] font-normal text-fg-2">/mês</span>
@@ -160,7 +160,7 @@ export function AdminSubStores() {
                           confirm(s.id);
                           toast(`Pagamento confirmado — ${s.name} liberada`);
                         }}
-                        className="inline-flex h-8 items-center gap-1 rounded-[6px] bg-success/15 px-2.5 text-[12px] font-semibold text-[#3ee07a] ring-1 ring-success/40"
+                        className="inline-flex h-8 items-center gap-1 rounded-[6px] bg-success/15 px-2.5 text-[12px] font-semibold text-[#4ade80] ring-1 ring-success/40"
                       >
                         <BadgeCheck size={14} /> Confirmar pagamento
                       </button>
@@ -171,7 +171,7 @@ export function AdminSubStores() {
                       </button>
                     )}
                     {s.status === "suspended" && (
-                      <button type="button" onClick={() => setStatus(s.id, "active")} className="h-8 rounded-[6px] border border-primary/60 px-2.5 text-[12px] font-semibold hover:bg-primary/10">
+                      <button type="button" onClick={() => setStatus(s.id, "active")} className="h-8 rounded-[6px] border border-white/[0.1] px-2.5 text-[12px] font-medium text-fg-2 transition-colors hover:border-white/[0.2] hover:text-white">
                         Reativar
                       </button>
                     )}

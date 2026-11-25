@@ -20,7 +20,7 @@ export function AdminAutomation() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2.5 rounded-[10px] border border-sky-500/25 bg-sky-500/[0.07] px-3.5 py-2.5 text-[12.5px] text-sky-100/90">
+      <div className="flex items-start gap-2 text-[12.5px] leading-relaxed text-muted">
         <Info size={15} className="mt-[1px] shrink-0" />
         <p>
           As regras abaixo definem quem entra na fila de recuperação. O disparo <strong>automático</strong> precisa da API do WhatsApp
@@ -40,10 +40,10 @@ export function AdminAutomation() {
       >
         <div className="grid gap-3 lg:grid-cols-3">
           {rules.map((r) => (
-            <div key={r.id} className="rounded-[12px] border border-[#1a1b20] bg-[#0d0e11] p-3.5">
+            <div key={r.id} className="rounded-[10px] border border-white/[0.06] p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="flex items-center gap-2 text-[13.5px] font-semibold">
-                  <MessageCircle size={16} className="text-success" /> {r.label}
+                  <MessageCircle size={15} className="text-muted" /> {r.label}
                 </p>
                 <Toggle checked={r.enabled} onChange={(v) => updateRule(r.id, { enabled: v })} label={`Ativar regra ${r.label}`} />
               </div>
@@ -58,7 +58,7 @@ export function AdminAutomation() {
                     const days = Math.max(1, Math.min(365, Number(e.target.value) || 1));
                     updateRule(r.id, { days });
                   }}
-                  className="h-8 w-[70px] rounded-[6px] border border-[#24252b] bg-[#0a0b0d] px-2 text-center text-[13px] text-fg outline-none focus:border-primary/60"
+                  className="h-8 w-[70px] rounded-[6px] border border-white/[0.08] bg-transparent px-2 text-center text-[13px] text-fg outline-none focus:border-primary/60"
                 />
                 dias sem compra
               </label>
@@ -71,7 +71,7 @@ export function AdminAutomation() {
                 />
               </label>
               {sample && (
-                <p className="mt-2 rounded-[8px] bg-[#0b2a17]/60 px-2.5 py-2 text-[12px] text-fg">
+                <p className="mt-2 rounded-[8px] bg-white/[0.03] px-2.5 py-2 text-[12px] text-fg-2">
                   {fillTemplate(r.message, sample)}
                 </p>
               )}
@@ -86,7 +86,7 @@ export function AdminAutomation() {
         actions={!enabled && <Badge tone="neutral">Pausada</Badge>}
       >
         {queue.length ? (
-          <ul className="divide-y divide-[#141519]">
+          <ul className="divide-y divide-white/[0.05]">
             {queue.slice(0, 30).map(({ client, rule, idle }) => (
               <li key={client.id} className="flex flex-wrap items-center gap-3 py-2.5">
                 <div className="min-w-[180px] flex-1">
@@ -102,7 +102,7 @@ export function AdminAutomation() {
                   type="button"
                   disabled={!enabled}
                   onClick={() => contact(client, fillTemplate(rule.message, client))}
-                  className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-success/15 px-3 text-[12.5px] font-semibold text-[#3ee07a] ring-1 ring-success/40 disabled:opacity-40"
+                  className="inline-flex h-8 items-center gap-2 rounded-[8px] border border-white/[0.1] px-3 text-[12.5px] font-medium text-fg-2 transition-colors hover:border-white/[0.2] hover:text-white disabled:opacity-40"
                 >
                   <Send size={14} /> Enviar no WhatsApp
                 </button>

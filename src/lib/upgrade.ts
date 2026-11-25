@@ -1,10 +1,10 @@
-import type { Skin } from "@/types/catalog";
+import type { Skin, VariantType, WearCode } from "@/types/catalog";
 import { UPGRADE } from "@/config/upgrade";
-import type { OfferItem, UpgradePick } from "@/stores/upgrade-store";
+import { WEARS } from "@/config/catalog";
+import { profileUrl } from "@/integrations/steam/trade-link";
+import type { OfferItem, SteamAccount, UpgradePick } from "@/stores/upgrade-store";
 import { formatBRL } from "./format";
 import { getOffer, priceFor, skinDisplayName, variantLabel, wearName } from "./skin";
-
-type GetSkin = (id: string) => Skin | undefined;
 
 /** Preço de referência (catálogo) de uma skin escolhida. */
 export function pickPrice(skin: Skin, pick: UpgradePick) {
@@ -13,20 +13,47 @@ export function pickPrice(skin: Skin, pick: UpgradePick) {
 
 export const tradeInValue = (reference: number) => Math.round(reference * UPGRADE.tradeInRate * 100) / 100;
 
+const WEAR_BY_NAME = new Map(WEARS.map((w) => [w.name, w.code]));
+
+/** "★ StatTrak™ Karambit | Doppler (Factory New)" → base, condição e variação. */
+export function parseMarketHashName(name: string): { base: string; wear: WearCode | null; variant: VariantType } {
+  let base = name.trim();
+  let wear: WearCode | null = null;
+  const m = base.match(/^(.*) \(([^()]+)\)$/);
+  if (m && WEAR_BY_NAME.has(m[2]!)) {
+    base = m[1]!;
+    wear = WEAR_BY_NAME.get(m[2]!)!;
+  }
+  let variant: VariantType = "normal";
+  if (base.includes("StatTrak™ ")) {
+    variant = "stattrak";
+    base = base.replace("StatTrak™ ", "");
+  } else if (base.startsWith("Souvenir ")) {
+    variant = "souvenir";
+    base = base.slice("Souvenir ".length);
+  }
+  return { base, wear, variant };
+}
+
 export interface ResolvedOffer {
   item: OfferItem;
-  skin?: Skin;
+  /** Skin do catálogo com o mesmo nome e condição, quando existir */
+  match?: { skin: Skin; pick: UpgradePick };
   reference: number;
+  /** 0 quando não há referência — o item fica "a avaliar" */
   estimate: number;
 }
 
-export function resolveOffer(items: OfferItem[], getSkin: GetSkin): ResolvedOffer[] {
+/** Estima cada item do inventário pelo preço do mesmo item no catálogo da loja. */
+export function resolveOffer(items: OfferItem[], skins: Skin[]): ResolvedOffer[] {
+  const byName = new Map(skins.map((s) => [s.marketName, s]));
   return items.map((item) => {
-    if (item.kind === "custom") return { item, reference: 0, estimate: 0 };
-    const skin = getSkin(item.skinId);
-    if (!skin) return { item, reference: 0, estimate: 0 };
-    const reference = pickPrice(skin, item);
-    return { item, skin, reference, estimate: tradeInValue(reference) };
+    const { base, wear, variant } = parseMarketHashName(item.marketHashName);
+    const skin = byName.get(base);
+    const offer = skin && wear ? skin.offers.find((o) => o.wear === wear) : undefined;
+    if (!skin || !wear || !offer) return { item, reference: 0, estimate: 0 };
+    const reference = priceFor(offer, variant);
+    return { item, match: { skin, pick: { skinId: skin.id, wear, variant } }, reference, estimate: tradeInValue(reference) };
   });
 }
 
@@ -39,7 +66,7 @@ export interface UpgradeQuote {
   multiplier: number;
   /** positivo = cliente paga; negativo = sobra crédito */
   difference: number;
-  pendingCustom: number;
+  pending: number;
 }
 
 export function quote(resolved: ResolvedOffer[], targetPrice: number): UpgradeQuote {
@@ -50,7 +77,7 @@ export function quote(resolved: ResolvedOffer[], targetPrice: number): UpgradeQu
     coverage: targetPrice > 0 ? offerValue / targetPrice : 0,
     multiplier: offerValue > 0 && targetPrice > 0 ? targetPrice / offerValue : 0,
     difference: Math.round((targetPrice - offerValue) * 100) / 100,
-    pendingCustom: resolved.filter((r) => r.item.kind === "custom").length,
+    pending: resolved.filter((r) => !r.match).length,
   };
 }
 
@@ -103,27 +130,32 @@ export const formatMultiplier = (m: number) =>
 const pickLabel = (skin: Skin, pick: UpgradePick) =>
   `${skinDisplayName(skin)}${pick.variant !== "normal" ? ` ${variantLabel(pick.variant)}` : ""} (${wearName(pick.wear)})`;
 
-export function buildUpgradeMessage(resolved: ResolvedOffer[], target: { skin: Skin; pick: UpgradePick } | null, q: UpgradeQuote) {
-  const give = resolved.map((r) =>
-    r.item.kind === "custom"
-      ? `• ${r.item.name} — a avaliar`
-      : r.skin
-        ? `• ${pickLabel(r.skin, r.item)} — estimativa ${formatBRL(r.estimate)}`
-        : null,
+export function buildUpgradeMessage(
+  account: SteamAccount | null,
+  resolved: ResolvedOffer[],
+  target: { skin: Skin; pick: UpgradePick } | null,
+  q: UpgradeQuote,
+) {
+  const give = resolved.map(
+    (r) =>
+      `• ${r.item.marketHashName} — ${r.match ? `estimativa ${formatBRL(r.estimate)}` : "a avaliar"} (asset ${r.item.assetId})`,
   );
   return [
     "Olá, BRN Skins! Quero fazer um upgrade.",
     "",
-    "Vou entregar:",
-    ...give.filter(Boolean),
-    `Estimativa das minhas skins: ${formatBRL(q.offerValue)}${q.pendingCustom ? ` + ${q.pendingCustom} item(ns) a avaliar` : ""}`,
+    account ? `Steam: ${profileUrl(account.steamId)}` : null,
+    account?.tradeLink ? `Trade link: ${account.tradeLink}` : null,
+    account ? "" : null,
+    "Vou entregar (do meu inventário):",
+    ...give,
+    `Estimativa: ${formatBRL(q.offerValue)}${q.pending ? ` + ${q.pending} item(ns) a avaliar` : ""}`,
     "",
     "Quero receber:",
     target ? `• ${pickLabel(target.skin, target.pick)} — ${formatBRL(q.targetPrice)}` : "• Ainda vou escolher, me ajudem a decidir",
     "",
     target
       ? q.difference > 0
-        ? `Diferença estimada a pagar: ${formatBRL(q.difference)}`
+        ? `Diferença estimada a pagar: ${formatBRL(q.difference)}${q.pending ? " (antes da avaliação dos itens pendentes)" : ""}`
         : `Crédito estimado a meu favor: ${formatBRL(-q.difference)}`
       : null,
     "Sei que os valores são estimativas e dependem da avaliação de vocês.",

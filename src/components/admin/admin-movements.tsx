@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { formatBRL, formatInt } from "@/lib/format";
 import { useAdminStore } from "@/stores/admin-store";
 import { downloadCsv } from "./admin-hooks";
-import { DemoNotice, GhostButton, KpiCard, Panel, SelectPill, Table } from "./admin-ui";
+import { DemoNotice, GhostButton, KpiCard, KpiStrip, Panel, SelectPill, Table } from "./admin-ui";
 
 export function AdminMovements() {
   const movements = useAdminStore((s) => s.movements);
@@ -32,11 +32,11 @@ export function AdminMovements() {
   return (
     <div className="space-y-4">
       <DemoNotice />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <KpiStrip>
         <KpiCard label="Entradas (compras)" value={formatBRL(inSum)} icon={ArrowDownToLine} />
         <KpiCard label="Saídas (vendas)" value={formatBRL(outSum)} icon={ArrowUpFromLine} />
         <KpiCard label="Resultado" value={`${outSum - inSum >= 0 ? "+" : "-"} ${formatBRL(Math.abs(outSum - inSum))}`} icon={Scale} />
-      </div>
+      </KpiStrip>
       <Panel
         title="Movimentações"
         icon={ArrowRightLeft}
@@ -54,8 +54,8 @@ export function AdminMovements() {
         }
       >
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="flex h-10 min-w-[220px] flex-1 items-center rounded-[8px] border border-[#1d1e22] bg-[#0e0f11] px-3">
-            <Search size={16} className="text-fg-2" />
+          <label className="flex h-9 min-w-[220px] flex-1 items-center rounded-[8px] border border-white/[0.06] bg-white/[0.02] px-3 focus-within:border-white/[0.16]">
+            <Search size={15} className="text-faint" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar movimentação..." className="ml-2 flex-1 bg-transparent text-[13.5px] outline-none" />
           </label>
           <SelectPill label="Tipo" value={type} onChange={setType} options={[{ id: "all", label: "Todas" }, { id: "in", label: "Entradas" }, { id: "out", label: "Saídas" }]} />
@@ -66,7 +66,7 @@ export function AdminMovements() {
             <tr key={m.id}>
               <td className="whitespace-nowrap text-fg-2">{new Date(m.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
               <td>
-                <span className={cn("inline-flex items-center gap-1.5 font-semibold", m.type === "in" ? "text-sky-300" : "text-[#3ee07a]")}>
+                <span className={cn("inline-flex items-center gap-1.5 font-semibold", m.type === "in" ? "text-sky-300" : "text-[#4ade80]")}>
                   {m.type === "in" ? <ArrowDownToLine size={14} /> : <ArrowUpFromLine size={14} />}
                   {m.type === "in" ? "Entrada" : "Saída"}
                 </span>
@@ -74,7 +74,7 @@ export function AdminMovements() {
               <td>{m.description}</td>
               <td>{formatInt(m.quantity)}</td>
               <td className="font-semibold">{formatBRL(m.amount)}</td>
-              <td className="text-[#3ee07a]">{m.type === "out" ? formatBRL(m.amount - (m.cost ?? 0)) : "—"}</td>
+              <td className="text-[#4ade80]">{m.type === "out" ? formatBRL(m.amount - (m.cost ?? 0)) : "—"}</td>
               <td className="text-fg-2">{m.clientId ? clientName.get(m.clientId) : "—"}</td>
             </tr>
           ))}

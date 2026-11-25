@@ -47,11 +47,14 @@ export function UpgradeReactor({
   coverage,
   multiplier,
   hasOffer,
+  pendingOnly = false,
   hasTarget,
 }: {
   coverage: number;
   multiplier: number;
   hasOffer: boolean;
+  /** Há itens na oferta, mas todos aguardam avaliação da equipe */
+  pendingOnly?: boolean;
   hasTarget: boolean;
 }) {
   const clamped = Math.max(0, Math.min(1, coverage));
@@ -136,7 +139,13 @@ export function UpgradeReactor({
             <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-faint">Multiplicador</p>
             <p className="mt-1 text-[38px] font-black italic leading-none tracking-[-0.03em] text-white/25">x?</p>
             <p className="mt-2 max-w-[120px] text-[11.5px] leading-snug text-muted">
-              {!hasOffer && !hasTarget ? "Monte sua oferta e escolha o alvo" : !hasOffer ? "Adicione suas skins" : "Escolha o alvo"}
+              {pendingOnly
+                ? "Seus itens serão avaliados pela equipe"
+                : !hasOffer && !hasTarget
+                  ? "Monte sua oferta e escolha o alvo"
+                  : !hasOffer
+                    ? "Adicione suas skins"
+                    : "Escolha o alvo"}
             </p>
           </>
         )}
