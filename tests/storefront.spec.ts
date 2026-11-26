@@ -77,3 +77,21 @@ test("sem overflow horizontal", async ({ page }) => {
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
 });
+
+test("filtro por arma: só AK-47 e depois AK-47 + AWP", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Painel lateral de filtros (desktop)");
+  await page.goto("/");
+  const filters = page.getByRole("complementary", { name: "Filtros" });
+  await filters.getByRole("button", { name: /^AK-47/ }).click();
+  const cards = page.locator("article h3");
+  await expect(cards.first()).toHaveText(/^AK-47 \|/);
+  await expect(page.getByRole("button", { name: "Ver detalhes de AWP | Fade" })).toHaveCount(0);
+  for (const name of await cards.allTextContents()) expect(name).toMatch(/^AK-47 \|/);
+
+  await filters.getByRole("button", { name: /^AWP/ }).click();
+  await expect(page.getByRole("button", { name: "Ver detalhes de AWP | Fade" }).first()).toBeVisible();
+  for (const name of await cards.allTextContents()) expect(name).toMatch(/^(AK-47|AWP) \|/);
+
+  await filters.getByRole("button", { name: /^Limpar \(2\)/ }).click();
+  await expect(page.getByRole("button", { name: /Ver detalhes de ★/ }).first()).toBeVisible();
+});

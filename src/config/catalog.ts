@@ -12,6 +12,13 @@ export const CATEGORIES: Category[] = [
   { id: "knife", label: "Faca", badge: "FACA", sortOrder: 6 },
   { id: "gloves", label: "Luvas", badge: "LUVAS", sortOrder: 7 },
   { id: "agent", label: "Agentes", badge: "AGENTE", sortOrder: 8 },
+  { id: "equipment", label: "Equipamento", badge: "EQUIP.", sortOrder: 9 },
+  { id: "sticker", label: "Adesivos", badge: "ADESIVO", sortOrder: 10 },
+  { id: "case", label: "Caixas", badge: "CAIXA", sortOrder: 11 },
+  { id: "graffiti", label: "Grafites", badge: "GRAFITE", sortOrder: 12 },
+  { id: "music", label: "Kits de música", badge: "MÚSICA", sortOrder: 13 },
+  { id: "patch", label: "Patches", badge: "PATCH", sortOrder: 14 },
+  { id: "charm", label: "Chaveiros", badge: "CHAVEIRO", sortOrder: 15 },
 ];
 
 export const RARITIES: Rarity[] = [

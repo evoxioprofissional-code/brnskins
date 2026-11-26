@@ -13,8 +13,11 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
 import { skinDisplayName } from "@/lib/skin";
-import { buildUpgradeMessage, formatMultiplier, pickPrice, quote, resolveOffer, suggestTargets, type ResolvedOffer } from "@/lib/upgrade";
+import { buildUpgradeMessage, formatMultiplier, parseMarketHashName, pickPrice, quote, resolveOffer, suggestTargets, type ResolvedOffer } from "@/lib/upgrade";
 import { useUpgradeStore, type UpgradePick } from "@/stores/upgrade-store";
+import { useCatalogItems, useCatalogPage } from "@/hooks/use-catalog-page";
+import { DEFAULT_QUERY } from "@/lib/catalog-query";
+import { EMPTY_FILTERS } from "@/types/filters";
 import { trackReferralConversion } from "@/app/actions/referral";
 import { createId } from "@/lib/id";
 import { readReferralCode } from "@/lib/referral-client";
@@ -26,7 +29,7 @@ const brl = (n: number) => formatBRL(n);
 const rarityColor = (skin: Skin) => getRarity(skin.rarity)?.color ?? "#e60023";
 
 export function UpgradeLab() {
-  const { skins, getSkin } = useCatalogData();
+  const { getSkin } = useCatalogData();
   const hydrated = useHydrated();
   const store = useUpgradeStore();
   const offer = hydrated ? store.offer : [];
@@ -36,7 +39,11 @@ export function UpgradeLab() {
   const [targetOpen, setTargetOpen] = useState(false);
   const openWhatsApp = useOpenWhatsApp();
 
-  const resolved = useMemo(() => resolveOffer(offer, skins), [offer, skins]);
+  // Só os itens necessários vêm do servidor: os da oferta (por nome) e o alvo
+  const offerNames = useMemo(() => [...new Set(offer.map((i) => parseMarketHashName(i.marketHashName).base))], [offer]);
+  const { items: offerSkins } = useCatalogItems({ names: offerNames });
+  useCatalogItems({ ids: target ? [target.skinId] : [] });
+  const resolved = useMemo(() => resolveOffer(offer, offerSkins), [offer, offerSkins]);
   const targetSkin = target ? getSkin(target.skinId) : undefined;
   const targetPrice = target && targetSkin ? pickPrice(targetSkin, target) : 0;
   const q = quote(resolved, targetPrice);
@@ -46,13 +53,23 @@ export function UpgradeLab() {
   const hasTarget = !!targetSkin;
 
   const offeredIds = useMemo(() => resolved.flatMap((r) => (r.match ? [r.match.skin.id] : [])), [resolved]);
+  // Candidatos a alvo: faixa de preço perto de valor × multiplicador (busca no servidor)
+  const goal = q.offerValue * store.multiplier;
+  const candidateQuery = useMemo(
+    () =>
+      q.offerValue > 0
+        ? { ...DEFAULT_QUERY, filters: { ...EMPTY_FILTERS, minPrice: Math.floor(Math.max(q.offerValue, goal * 0.7)), maxPrice: Math.ceil(goal * 1.4) }, sort: "price-asc" as const, pageSize: 60 }
+        : { ...DEFAULT_QUERY, pageSize: 24 },
+    [q.offerValue, goal],
+  );
+  const { data: candidates } = useCatalogPage(candidateQuery, { publish: false });
   const suggestions = useMemo(
-    () => suggestTargets(skins, q.offerValue, store.multiplier, offeredIds),
-    [skins, q.offerValue, store.multiplier, offeredIds],
+    () => suggestTargets(candidates?.items ?? [], q.offerValue, store.multiplier, offeredIds),
+    [candidates, q.offerValue, store.multiplier, offeredIds],
   );
 
   // Silhueta exibida na vaga vazia do alvo
-  const ghostImage = useMemo(() => (skins.find((s) => s.category === "knife") ?? skins[0])?.image, [skins]);
+  const ghostImage = "/images/skins/bayonet-fade.png";
 
   const closeInventory = useCallback(() => setInventoryOpen(false), []);
   const closeTarget = useCallback(() => setTargetOpen(false), []);

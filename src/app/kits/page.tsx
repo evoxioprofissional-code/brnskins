@@ -6,9 +6,13 @@ import { getCatalogRepository } from "@/services/catalog";
 
 export const metadata: Metadata = { title: "Kits" };
 
+// Catálogo e preços mudam no máximo uma vez por dia (sincronização)
+export const revalidate = 600;
+
 export default async function KitsPage() {
-  const repo = getCatalogRepository();
-  const [skins, kits] = await Promise.all([repo.listSkins(), repo.listKits()]);
+  const repo = await getCatalogRepository();
+  const kits = await repo.listKits();
+  const skins = await repo.getSkins([...new Set(kits.flatMap((k) => k.items.map((i) => i.skinId)))]);
   return (
     <PageContainer>
       <PageHeading

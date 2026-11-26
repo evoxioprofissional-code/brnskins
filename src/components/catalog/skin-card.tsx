@@ -78,6 +78,9 @@ export const SkinCard = memo(function SkinCard({
           </button>
         </div>
         <div className="mt-[4px] flex items-center justify-between gap-2">
+        {skin.noWear ? (
+          <span className="mt-[3px] text-[10px] font-semibold leading-none text-faint">{category?.label}</span>
+        ) : (
         <ul className="mt-[3px] flex gap-[6px] text-[10px] font-bold leading-none" aria-label="Condições disponíveis">
           {WEARS.map((w) => {
             const on = available.has(w.code);
@@ -92,6 +95,7 @@ export const SkinCard = memo(function SkinCard({
             );
           })}
         </ul>
+        )}
         <span className="rounded-[4px] bg-[linear-gradient(180deg,#e3082a,#b5001b)] px-[5px] py-[2px] text-[9px] font-bold leading-[10px] tracking-[0.03em] text-white">
           {category?.badge}
         </span>

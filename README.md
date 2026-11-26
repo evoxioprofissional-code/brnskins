@@ -90,3 +90,26 @@ Precisa de `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_DB_PASSWORD` e `SUPABASE_DB_URL
 - Storage: buckets `banners` e `skins` (leitura pública, escrita só de admin).
 
 **Segurança:** RLS em todas as tabelas. O visitante só lê o catálogo, os planos e as configurações públicas; todo o resto é exclusivo de quem está em `admin_users`. A chave secreta e a senha do banco nunca vão para o frontend.
+
+## Catálogo e preços de mercado
+
+Com `NEXT_PUBLIC_CATALOG_SOURCE=supabase`, a loja usa o catálogo real gravado no Supabase
+(tabelas `market_skins` e `market_offers`). Enquanto não houver sincronização, cai nos dados de demonstração.
+
+- **Catálogo:** todos os itens negociáveis do CS2 do projeto aberto [ByMykel/CSGO-API](https://github.com/ByMykel/CSGO-API): armas, facas (inclusive vanilla), luvas, Zeus, agentes, adesivos, caixas e chaves, grafites, kits de música, patches e chaveiros (~16 mil itens com preço).
+- **Paginação no servidor:** a busca, os filtros, a ordenação e as contagens rodam no banco (`search_market_catalog`, `market_category_counts`). O navegador recebe só a página atual (48 itens) pela rota `GET /api/catalog`.
+- **Preços:** arquivos públicos e gratuitos do [CSGO Trader](https://csgotrader.app/) (BUFF163, C5Game, CSFloat, Skinport e Steam), em USD, atualizados cerca de uma vez por dia. Não é uma API oficial nem tem garantia; se a fonte falhar, a loja mantém o último preço salvo.
+- **Preço de venda:** `preço do mercado base × dólar do dia × (1 + margem)`. Mercado base e margem ficam em **Admin → Preços de mercado** (que também tem o botão "Sincronizar agora").
+
+Sincronizar manualmente (com o servidor rodando):
+
+```bash
+npm run catalog:sync                              # http://localhost:3000
+BASE_URL=https://seusite.com npm run catalog:sync # produção
+```
+
+Em produção, agende uma chamada diária para `POST /api/cron/catalog-sync` com o cabeçalho
+`Authorization: Bearer <CRON_SECRET>` (defina `CRON_SECRET` nas variáveis do servidor).
+
+Os testes (`npm run test:e2e`) sobem um servidor próprio na porta 3100 com o catálogo de demonstração,
+para que preços e itens sejam sempre os mesmos.

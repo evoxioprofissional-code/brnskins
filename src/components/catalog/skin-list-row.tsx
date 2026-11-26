@@ -43,7 +43,7 @@ export const SkinListRow = memo(function SkinListRow({
       <div className="pointer-events-none min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-semibold">{name}</p>
         <p className="truncate text-[12px] text-fg-2/80">
-          <span className="font-semibold text-primary">{getCategory(skin.category)?.label}</span> · {wearName(offer.wear)} ·{" "}
+          <span className="font-semibold text-primary">{getCategory(skin.category)?.label}</span> · {skin.noWear ? "Item" : wearName(offer.wear)} ·{" "}
           <span style={{ color: rarity?.color }}>{rarity?.name}</span>
         </p>
       </div>

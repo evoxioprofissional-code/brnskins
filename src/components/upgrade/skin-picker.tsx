@@ -6,7 +6,9 @@ import { ArrowLeft, Check, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CategoryId, Skin, VariantType, WearCode } from "@/types/catalog";
 import { CATEGORIES, VARIANT_LABELS, WEAR_COLORS, getRarity, getWear } from "@/config/catalog";
-import { useCatalogData } from "@/components/catalog/catalog-data-provider";
+import { useCatalogPage } from "@/hooks/use-catalog-page";
+import { DEFAULT_QUERY } from "@/lib/catalog-query";
+import { EMPTY_FILTERS } from "@/types/filters";
 import { useLockBodyScroll } from "@/hooks/use-lock-body-scroll";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
@@ -64,7 +66,6 @@ export function SkinPicker({ open, onClose, onPick }: SkinPickerProps) {
 }
 
 function PickerBody({ onClose, onPick }: Omit<SkinPickerProps, "open">) {
-  const { skins } = useCatalogData();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [selected, setSelected] = useState<Skin | null>(null);
@@ -76,17 +77,13 @@ function PickerBody({ onClose, onPick }: Omit<SkinPickerProps, "open">) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const usedCategories = useMemo(() => CATEGORIES.filter((c) => skins.some((s) => s.category === c.id)), [skins]);
-
-  const results = useMemo(() => {
-    const tokens = normalize(query).split(/\s+/).filter(Boolean);
-    return skins.filter((s) => {
-      if (category !== "all" && s.category !== category) return false;
-      if (!tokens.length) return true;
-      const hay = normalize(`${skinDisplayName(s)} ${s.marketName}`);
-      return tokens.every((t) => hay.includes(t));
-    });
-  }, [skins, query, category]);
+  const usedCategories = CATEGORIES;
+  const search = useMemo(
+    () => ({ ...DEFAULT_QUERY, filters: { ...EMPTY_FILTERS, query, category }, pageSize: 40 }),
+    [query, category],
+  );
+  const { data, loading } = useCatalogPage(search, { publish: false });
+  const results = data?.items ?? [];
 
 
   return (
@@ -177,7 +174,7 @@ function PickerBody({ onClose, onPick }: Omit<SkinPickerProps, "open">) {
               );
             })}
             {!results.length && (
-              <li className="px-4 py-10 text-center text-[13px] text-muted">Nenhuma skin encontrada.</li>
+              <li className="px-4 py-10 text-center text-[13px] text-muted">{loading ? "Buscando..." : "Nenhuma skin encontrada."}</li>
             )}
           </ul>
 

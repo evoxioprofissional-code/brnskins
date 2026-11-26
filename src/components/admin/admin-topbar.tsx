@@ -169,7 +169,7 @@ export function AdminTopbar({ onMenu }: { onMenu: () => void }) {
       </div>
       <div className="ml-auto flex items-center gap-2 lg:gap-3">
         {/* Telas já ligadas ao banco não mostram o aviso de demonstração */}
-        {!pathname.startsWith("/admin/influenciadores") && (
+        {!["/admin/influenciadores", "/admin/mercado"].some((p) => pathname.startsWith(p)) && (
         <span
           title="O banco de dados ainda não está conectado: as alterações ficam salvas apenas neste navegador."
           className="hidden items-center gap-1.5 rounded-full border border-amber-400/20 px-2.5 py-1 text-[11.5px] font-medium text-amber-200/80 sm:inline-flex"

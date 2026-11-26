@@ -20,7 +20,8 @@ const line = (item: CartItem) => {
     return `• ${item.quantity}x ${item.name} (${item.itemsLabel}) — ${formatBRL(item.unitPrice * item.quantity)}`;
   }
   const variant = item.variant !== "normal" ? ` ${variantLabel(item.variant)}` : "";
-  return `• ${item.quantity}x ${item.name}${variant} (${wearName(item.wear)}) — ${formatBRL(
+  const wear = item.noWear ? "" : ` (${wearName(item.wear)})`;
+  return `• ${item.quantity}x ${item.name}${variant}${wear} — ${formatBRL(
     item.unitPrice * item.quantity,
   )}`;
 };

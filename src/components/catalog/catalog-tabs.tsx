@@ -6,17 +6,18 @@ import { formatInt } from "@/lib/format";
 import { useCatalogStore, type CatalogTab } from "@/stores/catalog-store";
 import { useFavoritesStore } from "@/stores/favorites-store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { useCatalogData } from "./catalog-data-provider";
+import { useCatalogSummary } from "./catalog-data-provider";
 
 export function CatalogTabs() {
   const tab = useCatalogStore((s) => s.tab);
   const setTab = useCatalogStore((s) => s.setTab);
   const hydrated = useHydrated();
   const favCount = useFavoritesStore((s) => s.ids.length);
-  const { skins } = useCatalogData();
+  const summary = useCatalogSummary();
+  const catalogTotal = summary.counts.all ?? summary.total;
 
   const tabs: { id: CatalogTab; label: string; icon: typeof Heart; count?: number }[] = [
-    { id: "catalog", label: "Catálogo", icon: LayoutGrid, count: skins.length },
+    { id: "catalog", label: "Catálogo", icon: LayoutGrid, count: catalogTotal },
     { id: "inventory", label: "Inventário", icon: Briefcase, count: 0 },
     { id: "favorites", label: "Favoritos", icon: Heart, count: hydrated ? favCount : 0 },
     { id: "upgrades", label: "Upgrades", icon: RefreshCw },

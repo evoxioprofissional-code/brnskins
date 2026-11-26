@@ -23,6 +23,9 @@ import { useOpenWhatsApp } from "@/components/catalog/tab-panels";
 import { toast } from "@/components/ui/toaster";
 import { DRAWER_WIDTH } from "@/config/layout";
 import { DiscountPill } from "./discount-pill";
+
+/** Categorias que o estúdio 3D consegue exibir */
+const INSPECTABLE = new Set(["rifle", "sniper", "pistol", "smg", "heavy", "knife", "gloves", "equipment"]);
 import { QuantityStepper } from "./quantity-stepper";
 
 function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
@@ -40,8 +43,10 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
 
   const offer = getOffer(skin, wear);
   const unitPrice = priceFor(offer, variant);
-  const steamPrice = priceFor({ ...offer, price: offer.steamPrice }, variant);
-  const discount = discountPercent(offer);
+  // Com preços reais por versão, a Steam só é comparável na versão normal
+  const realVariants = Boolean(offer.variantPrices);
+  const steamPrice = realVariants ? offer.steamPrice : priceFor({ ...offer, price: offer.steamPrice }, variant);
+  const discount = realVariants && variant !== "normal" ? 0 : discountPercent({ price: unitPrice, steamPrice });
   const rarity = getRarity(skin.rarity);
   const category = getCategory(skin.category);
   const name = skinDisplayName(skin);
@@ -55,6 +60,7 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
       name,
       image: skin.image,
       wear,
+      ...(skin.noWear ? { noWear: true } : {}),
       variant,
       unitPrice,
       quantity: qty,
@@ -85,12 +91,15 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
         <div className="absolute inset-x-[20px] bottom-[22px] top-[20px]">
           <Image src={skin.image} alt={name} fill sizes="392px" priority className="object-contain drop-shadow-[0_10px_22px_rgb(0_0_0/0.6)]" />
         </div>
-        <span
-          className="absolute bottom-[10px] left-[21px] rounded-[5px] px-[7px] py-[2px] text-[12px] font-bold leading-[14px] text-white"
-          style={{ background: wear === "FN" ? "#15803d" : `${WEAR_COLORS[wear]}cc` }}
-        >
-          {wear}
-        </span>
+        {!skin.noWear && (
+          <span
+            className="absolute bottom-[10px] left-[21px] rounded-[5px] px-[7px] py-[2px] text-[12px] font-bold leading-[14px] text-white"
+            style={{ background: wear === "FN" ? "#15803d" : `${WEAR_COLORS[wear]}cc` }}
+          >
+            {wear}
+          </span>
+        )}
+        {INSPECTABLE.has(skin.category) && (
         <Link
           href={`/inspect?${new URLSearchParams({
             skin: skin.id,
@@ -101,6 +110,7 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
         >
           <Box size={14} strokeWidth={2} /> Inspecionar 3D
         </Link>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col px-[16px] pb-[16px] lg:px-[21px] lg:pb-[28px]">
@@ -128,7 +138,7 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
           <span className="text-[23px] font-bold leading-[28px] tracking-[-0.015em]">{formatBRL(unitPrice)}</span>
           <DiscountPill percent={discount} size="md" direction="down" />
         </div>
-        {showSteam && (
+        {showSteam && steamPrice > unitPrice && !(realVariants && variant !== "normal") && (
           <p className="mt-[4px] text-[12px] leading-[16px] text-fg-2/80">
             Preço no Steam: <span className="line-through">{formatBRL(steamPrice)}</span>
           </p>
@@ -158,6 +168,8 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
         </div>
 
         {/* Condição */}
+        {!skin.noWear && (
+        <>
         <p className="mt-[15px] text-[12.5px] leading-[16px] text-fg-2">Condição (Float)</p>
         <div role="radiogroup" aria-label="Condição" className="mt-[7px] grid grid-cols-3 gap-x-[10px] gap-y-[7px]">
           {WEARS.map((w) => {
@@ -191,15 +203,23 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
             );
           })}
         </div>
+        </>
+        )}
 
         {/* Informações */}
         <dl className="mt-[13px] px-[3px] text-[12.5px]">
-          {[
-            ["Condição", wearName(wear), "text-fg font-medium text-[12px]"],
-            ["Float", formatFloat(offer.float), "text-fg-2 text-[12px]"],
-            ["StatTrak™", variant === "stattrak" ? "Sim" : "Não", "text-fg font-semibold text-[12px]"],
-            ["Entrega", skin.deliveryEstimate, "text-fg font-semibold text-[12px]"],
-          ].map(([k, v, cls]) => (
+          {(skin.noWear
+            ? [
+                ["Tipo", getCategory(skin.category)?.label ?? "Item", "text-fg font-medium text-[12px]"],
+                ["Entrega", skin.deliveryEstimate, "text-fg font-semibold text-[12px]"],
+              ]
+            : [
+                ["Condição", wearName(wear), "text-fg font-medium text-[12px]"],
+                ["Float de referência", formatFloat(offer.float), "text-fg-2 text-[12px]"],
+                ["StatTrak™", variant === "stattrak" ? "Sim" : "Não", "text-fg font-semibold text-[12px]"],
+                ["Entrega", skin.deliveryEstimate, "text-fg font-semibold text-[12px]"],
+              ]
+          ).map(([k, v, cls]) => (
             <div key={k} className="flex h-[27.6px] items-center justify-between border-b border-[#16171b]">
               <dt className="text-fg-2">{k}</dt>
               <dd className={cls}>{v}</dd>
@@ -208,11 +228,12 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
         </dl>
 
         {/* Inspeção */}
+        {INSPECTABLE.has(skin.category) && (
         <button
           type="button"
           onClick={() =>
             openWhatsApp(
-              `Olá, BRN Skins! Quero inspecionar em jogo: ${name} (${wearName(wear)}${
+              `Olá, BRN Skins! Quero inspecionar em jogo: ${name} (${skin.noWear ? "sem condição" : wearName(wear)}${
                 variant !== "normal" ? `, ${VARIANT_LABELS[variant]}` : ""
               }).`,
             )
@@ -230,6 +251,7 @@ function DrawerBody({ skin, onClose }: { skin: Skin; onClose: () => void }) {
           </span>
           <ChevronRight size={18} strokeWidth={2} className="shrink-0" />
         </button>
+        )}
 
         {/* Quantidade / total */}
         <div className="mt-[15px] rounded-[10px] border border-[#1b1c20] bg-[linear-gradient(180deg,#0e0f12,#0a0b0d)] max-lg:sticky max-lg:bottom-[max(10px,env(safe-area-inset-bottom))] max-lg:z-10 max-lg:rounded-[16px] max-lg:bg-[#0c0d10] max-lg:shadow-[0_-16px_36px_6px_rgb(4_5_7/0.95)] px-[9px] pb-[12px] pt-[9px]">

@@ -49,7 +49,7 @@ function CartLine({ item }: { item: CartItem }) {
         <p className="truncate text-[14px] font-semibold">{item.name}</p>
         <p className="truncate text-[12px] text-fg-2">
           {item.kind === "skin"
-            ? `${wearName(item.wear)}${item.variant !== "normal" ? ` · ${variantLabel(item.variant)}` : ""}`
+            ? `${item.noWear ? "Item" : wearName(item.wear)}${item.variant !== "normal" ? ` · ${variantLabel(item.variant)}` : ""}`
             : `Kit · ${item.itemsLabel}`}
         </p>
         <p className="mt-0.5 text-[12px] text-faint">{formatBRL(item.unitPrice)} / un.</p>

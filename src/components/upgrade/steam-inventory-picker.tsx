@@ -5,13 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, ExternalLink, Lock, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UPGRADE } from "@/config/upgrade";
-import { useCatalogData } from "@/components/catalog/catalog-data-provider";
+import { useCatalogItems } from "@/hooks/use-catalog-page";
 import { useLockBodyScroll } from "@/hooks/use-lock-body-scroll";
 import { INVENTORY_ERRORS, type InventoryResult, type SteamInventoryItem } from "@/integrations/steam/types";
 import { TRADE_LINK_HELP_URL, parseSteamInput, profileUrl } from "@/integrations/steam/trade-link";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
-import { resolveOffer } from "@/lib/upgrade";
+import { parseMarketHashName, resolveOffer } from "@/lib/upgrade";
 import type { OfferItem, SteamAccount } from "@/stores/upgrade-store";
 
 interface Props {
@@ -198,7 +198,6 @@ function InventoryStep({
   onConfirm: (items: OfferItem[]) => void;
   onDisconnect: () => void;
 }) {
-  const { skins } = useCatalogData();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Map<string, OfferItem>>(() => new Map(selected.map((i) => [i.assetId, i])));
@@ -216,6 +215,8 @@ function InventoryStep({
   }, [load]);
 
   const items = state.status === "ready" ? state.items : [];
+  const baseNames = useMemo(() => [...new Set(items.map((i) => parseMarketHashName(i.marketHashName).base))], [items]);
+  const { items: skins } = useCatalogItems({ names: baseNames });
   const estimates = useMemo(
     () => new Map(resolveOffer(items.map(toOfferItem), skins).map((r) => [r.item.assetId, r.match ? r.estimate : null])),
     [items, skins],

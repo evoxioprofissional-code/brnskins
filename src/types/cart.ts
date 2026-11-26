@@ -7,6 +7,8 @@ export interface CartSkinItem {
   name: string;
   image: string;
   wear: WearCode;
+  /** Item sem condição de desgaste (adesivo, caixa, agente...) */
+  noWear?: boolean;
   variant: VariantType;
   unitPrice: number;
   quantity: number;

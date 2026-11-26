@@ -1,17 +1,17 @@
 "use client";
 
 import { Funnel, X } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CATEGORIES, WEARS, WEAR_COLORS } from "@/config/catalog";
 import { CATEGORY_ICONS } from "@/components/icons/category-icons";
 import { cn } from "@/lib/cn";
 import { formatInt } from "@/lib/format";
 import { useCatalogStore } from "@/stores/catalog-store";
-import { useCategoryCounts } from "@/hooks/use-filtered-skins";
+import { useCatalogSummary } from "./catalog-data-provider";
 import type { CatalogFilters } from "@/types/filters";
 import { EMPTY_FILTERS } from "@/types/filters";
-import { useCatalogData } from "./catalog-data-provider";
 import { PriceRangeSlider } from "./price-range-slider";
+import { WeaponFilter } from "./weapon-filter";
 
 function Section({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
@@ -55,14 +55,9 @@ export function FiltersPanel({ onClose, variant = "sidebar" }: { onClose?: () =>
   const setFilter = useCatalogStore((s) => s.setFilter);
   const toggleInList = useCatalogStore((s) => s.toggleInList);
   const resetFilters = useCatalogStore((s) => s.resetFilters);
-  const { skins } = useCatalogData();
-  const counts = useCategoryCounts(skins, filters);
+  const { counts, priceBounds: bounds } = useCatalogSummary();
   const dirty = isDirty(filters);
-  const priceBounds = useMemo<[number, number]>(() => {
-    const prices = skins.flatMap((s) => s.offers.map((o) => o.price));
-    if (!prices.length) return [1, 100];
-    return [Math.max(1, Math.floor(Math.min(...prices))), Math.ceil(Math.max(...prices))];
-  }, [skins]);
+  const priceBounds: [number, number] = [Math.max(1, Math.floor(bounds[0])), Math.max(2, Math.ceil(bounds[1]))];
 
   const categories = [{ id: "all" as const, label: "Todas" }, ...CATEGORIES];
 
@@ -132,6 +127,8 @@ export function FiltersPanel({ onClose, variant = "sidebar" }: { onClose?: () =>
             })}
           </ul>
         </Section>
+
+        <WeaponFilter />
 
         <Section title="Desgaste">
           <div className="grid grid-cols-5 gap-[5px]">

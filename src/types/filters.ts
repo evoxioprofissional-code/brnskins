@@ -17,6 +17,8 @@ export interface CatalogFilters {
   minPrice: number | null;
   maxPrice: number | null;
   category: CategoryId | "all";
+  /** Armas específicas (ex.: "AK-47", "AWP") — nome base do item */
+  weapons: string[];
   wears: WearCode[];
   rarities: RarityId[];
   colors: SkinColor[];
@@ -30,6 +32,7 @@ export const EMPTY_FILTERS: CatalogFilters = {
   minPrice: null,
   maxPrice: null,
   category: "all",
+  weapons: [],
   wears: [],
   rarities: [],
   colors: [],

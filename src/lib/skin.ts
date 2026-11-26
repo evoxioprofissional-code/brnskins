@@ -2,7 +2,7 @@ import type { Skin, VariantType, WearCode, WearOffer } from "@/types/catalog";
 import { VARIANT_LABELS, getWear } from "@/config/catalog";
 
 export const skinDisplayName = (skin: Pick<Skin, "weapon" | "finish" | "isStar">) =>
-  `${skin.isStar ? "★ " : ""}${skin.weapon} | ${skin.finish}`;
+  `${skin.isStar ? "★ " : ""}${skin.weapon}${skin.finish ? ` | ${skin.finish}` : ""}`;
 
 export function getOffer(skin: Skin, wear?: WearCode): WearOffer {
   const target = wear ?? skin.defaultWear;
@@ -25,6 +25,6 @@ export const VARIANT_PRICE_FACTOR: Record<VariantType, number> = {
 };
 
 export const priceFor = (offer: WearOffer, variant: VariantType) =>
-  Math.round(offer.price * VARIANT_PRICE_FACTOR[variant] * 100) / 100;
+  offer.variantPrices?.[variant] ?? Math.round(offer.price * VARIANT_PRICE_FACTOR[variant] * 100) / 100;
 
 export const minPrice = (skin: Skin) => Math.min(...skin.offers.map((o) => o.price));

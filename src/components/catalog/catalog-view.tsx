@@ -3,23 +3,26 @@
 import { useEffect, useMemo } from "react";
 import { useCatalogStore } from "@/stores/catalog-store";
 import { useFavoritesStore } from "@/stores/favorites-store";
-import { useFilteredSkins } from "@/hooks/use-filtered-skins";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { useCatalogItems, useCatalogPage } from "@/hooks/use-catalog-page";
+import { CATALOG_PAGE_SIZE, DEFAULT_QUERY, applyFilters, queryToParams } from "@/lib/catalog-query";
 import type { CatalogFilters } from "@/types/filters";
 import { SkinDetailsDrawer } from "@/components/product/skin-details-drawer";
+import { UpgradeLab } from "@/components/upgrade/upgrade-lab";
 import { useCatalogData } from "./catalog-data-provider";
 import { CatalogTabs } from "./catalog-tabs";
 import { CatalogToolbar } from "./catalog-toolbar";
 import { FiltersPanel } from "./filters-panel";
 import { MobileFiltersSheet } from "./mobile-filters-sheet";
+import { Pagination } from "./pagination";
 import { SkinCollection } from "./skin-collection";
 import { InspectPanel, InventoryPanel } from "./tab-panels";
-import { UpgradeLab } from "@/components/upgrade/upgrade-lab";
 
 const countActive = (f: CatalogFilters) =>
   (f.minPrice !== null ? 1 : 0) +
   (f.maxPrice !== null ? 1 : 0) +
   (f.category !== "all" ? 1 : 0) +
+  f.weapons.length +
   f.wears.length +
   f.rarities.length +
   f.colors.length +
@@ -27,12 +30,26 @@ const countActive = (f: CatalogFilters) =>
   (f.stattrak !== "all" ? 1 : 0) +
   (f.souvenir !== "all" ? 1 : 0);
 
+const INITIAL_KEY = queryToParams(DEFAULT_QUERY).toString();
+
+function GridSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-[10px] sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(172px,1fr))] lg:gap-[12px]" aria-busy="true">
+      {Array.from({ length: 12 }, (_, i) => (
+        <div key={i} className="h-[248px] animate-pulse rounded-[12px] border border-[#18191d] bg-[#0b0c0f]" />
+      ))}
+    </div>
+  );
+}
+
 export function CatalogView() {
-  const { skins, source } = useCatalogData();
+  const { source, initialPage, adjust } = useCatalogData();
   const hydrated = useHydrated();
   const tab = useCatalogStore((s) => s.tab);
   const filters = useCatalogStore((s) => s.filters);
   const sort = useCatalogStore((s) => s.sort);
+  const page = useCatalogStore((s) => s.page);
+  const setPage = useCatalogStore((s) => s.setPage);
   const mobileOpen = useCatalogStore((s) => s.mobileFiltersOpen);
   const setMobileOpen = useCatalogStore((s) => s.setMobileFiltersOpen);
   const closeSkin = useCatalogStore((s) => s.closeSkin);
@@ -41,12 +58,20 @@ export function CatalogView() {
   // O drawer nunca permanece aberto ao sair da página do catálogo.
   useEffect(() => () => closeSkin(), [closeSkin]);
 
-  const visible = useFilteredSkins(skins, filters, sort);
-  const favorites = useMemo(
-    () => (hydrated ? visible.filter((s) => favIds.includes(s.id)) : []),
-    [visible, favIds, hydrated],
-  );
+  const query = useMemo(() => ({ filters, sort, page, pageSize: CATALOG_PAGE_SIZE }), [filters, sort, page]);
+  const { data, loading, error } = useCatalogPage(query, { initial: initialPage, initialKey: INITIAL_KEY });
+  const items = useMemo(() => adjust(data?.items ?? []), [adjust, data]);
+
+  // Favoritos: busca só os itens salvos
+  const favs = useCatalogItems({ ids: hydrated && tab === "favorites" ? favIds : [] });
+  const favorites = useMemo(() => applyFilters(adjust(favs.items), filters), [adjust, favs.items, filters]);
   const showsGrid = tab === "catalog" || tab === "favorites";
+
+  const goTo = (p: number) => {
+    setPage(p);
+    const el = document.getElementById("catalogo");
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <>
@@ -68,7 +93,20 @@ export function CatalogView() {
                 <CatalogToolbar onOpenFilters={() => setMobileOpen(true)} activeFilterCount={countActive(filters)} />
                 <div className="mt-3 lg:mt-[14px]">
                   {tab === "catalog" ? (
-                    <SkinCollection skins={visible} />
+                    !data ? (
+                      error ? (
+                        <p className="panel px-6 py-16 text-center text-[13.5px] text-fg-2">Não foi possível carregar o catálogo agora. Tente novamente.</p>
+                      ) : (
+                        <GridSkeleton />
+                      )
+                    ) : (
+                      <div className={loading ? "pointer-events-none opacity-50 transition-opacity" : "transition-opacity"}>
+                        <SkinCollection skins={items} />
+                        <Pagination page={data.page} pages={data.pages} total={data.total} pageSize={data.pageSize} onChange={goTo} disabled={loading} />
+                      </div>
+                    )
+                  ) : favs.loading && !favorites.length ? (
+                    <GridSkeleton />
                   ) : (
                     <SkinCollection
                       skins={favorites}
@@ -92,7 +130,7 @@ export function CatalogView() {
         )}
       </section>
 
-      <MobileFiltersSheet open={mobileOpen} onClose={() => setMobileOpen(false)} resultCount={visible.length} />
+      <MobileFiltersSheet open={mobileOpen} onClose={() => setMobileOpen(false)} resultCount={data?.total ?? 0} />
       <SkinDetailsDrawer />
     </>
   );

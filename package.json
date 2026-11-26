@@ -12,7 +12,8 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:status": "node scripts/db-migrate.mjs --status",
     "db:verify": "node scripts/db-verify.mjs",
-    "db:test": "node scripts/db-test-ops.mjs"
+    "db:test": "node scripts/db-test-ops.mjs",
+    "catalog:sync": "node scripts/catalog-sync.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

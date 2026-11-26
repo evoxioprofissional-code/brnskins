@@ -11,7 +11,14 @@ export type CategoryId =
   | "heavy"
   | "knife"
   | "gloves"
-  | "agent";
+  | "agent"
+  | "equipment"
+  | "sticker"
+  | "case"
+  | "graffiti"
+  | "music"
+  | "patch"
+  | "charm";
 
 export interface Category {
   id: CategoryId;
@@ -76,6 +83,8 @@ export interface WearOffer {
   steamPrice: number;
   float: number;
   available: boolean;
+  /** Preço real por versão (StatTrak™/Souvenir), quando a fonte informa */
+  variantPrices?: Partial<Record<VariantType, number>>;
 }
 
 export interface Skin {
@@ -89,6 +98,9 @@ export interface Skin {
   isStar: boolean;
   /** Nome base no mercado da Steam, sem condição (ex.: "★ Karambit | Doppler") */
   marketName: string;
+  /** Item sem condição de desgaste (adesivo, caixa, agente, faca vanilla...).
+   *  Nesse caso há uma única oferta e a condição não é exibida. */
+  noWear?: boolean;
   category: CategoryId;
   rarity: RarityId;
   image: string;

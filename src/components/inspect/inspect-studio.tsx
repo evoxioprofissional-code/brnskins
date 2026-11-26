@@ -250,6 +250,9 @@ function Section({ title, children, hint }: { title: string; children: ReactNode
 
 /* ------------------------------------------------------------------ Busca */
 
+/** Categorias que o estúdio 3D consegue exibir */
+const INSPECTABLE = new Set(["rifle", "sniper", "pistol", "smg", "heavy", "knife", "gloves", "equipment"]);
+
 function SkinSearch({
   skins,
   current,
@@ -271,16 +274,29 @@ function SkinSearch({
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
   const term = q.trim().toLowerCase();
-  const results = useMemo(() => {
-    const tokens = term.normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
-    const list = tokens.length
-      ? skins.filter((s) => {
-          const hay = `${skinDisplayName(s)} ${s.marketName}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          return tokens.every((t) => hay.includes(t));
-        })
-      : skins;
-    return list.slice(0, 8);
-  }, [skins, term]);
+  // Busca no catálogo completo pelo servidor (sem a lista inteira no navegador)
+  const [remote, setRemote] = useState<Skin[] | null>(null);
+  useEffect(() => {
+    if (!term) {
+      setRemote(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/catalog?${new URLSearchParams({ q: term, size: "40" })}`, { signal: controller.signal });
+        const page = (await res.json()) as { items?: Skin[] };
+        setRemote((page.items ?? []).filter((s) => INSPECTABLE.has(s.category)));
+      } catch {
+        /* busca cancelada ou indisponível */
+      }
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [term]);
+  const results = useMemo(() => (term ? (remote ?? []) : skins).slice(0, 8), [skins, term, remote]);
 
   return (
     <div ref={ref} className="relative w-full">
@@ -363,7 +379,7 @@ const TABS: { id: Tab; label: string; icon: typeof Eye }[] = [
   { id: "map", label: "Mapa", icon: MapIcon },
 ];
 
-export function InspectStudio({ skins }: { skins: Skin[] }) {
+export function InspectStudio({ skins, gloves }: { skins: Skin[]; gloves: Skin[] }) {
   const keyReady = hasCs2InspectKey();
   const { view, status, error, mount } = useCs2Inspect(VIEWER_ID, keyReady);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -372,7 +388,6 @@ export function InspectStudio({ skins }: { skins: Skin[] }) {
   const [uiHidden, setUiHidden] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const gloves = useMemo(() => skins.filter((s) => s.category === "gloves"), [skins]);
 
   const initial = useMemo<StudioState>(() => {
     const first = skins[0];

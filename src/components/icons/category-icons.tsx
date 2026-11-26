@@ -1,4 +1,4 @@
-import { LayoutGrid, UserRound, type LucideIcon } from "lucide-react";
+import { Box, KeyRound, LayoutGrid, Music, Shield, SprayCan, Sticker, UserRound, Zap, type LucideIcon } from "lucide-react";
 import type { CategoryId } from "@/types/catalog";
 
 type IconProps = { size?: number; className?: string };
@@ -61,6 +61,13 @@ export const CATEGORY_ICONS: Record<CategoryId | "all", (p: IconProps) => React.
   knife: KnifeIcon,
   gloves: GlovesIcon,
   agent: AgentIcon,
+  equipment: lucide(Zap),
+  sticker: lucide(Sticker),
+  case: lucide(Box),
+  graffiti: lucide(SprayCan),
+  music: lucide(Music),
+  patch: lucide(Shield),
+  charm: lucide(KeyRound),
 };
 
 /** Selo do CS2 usado no seletor de jogo do header. */

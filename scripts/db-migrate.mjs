@@ -57,6 +57,7 @@ try {
     }
   }
   if (!pending) console.log("Nenhuma migration pendente.");
+  else if (!statusOnly && !process.exitCode) await client.query("notify pgrst, 'reload schema'");
 } finally {
   await client.end();
 }
