@@ -18,7 +18,6 @@ test("preços de mercado: cobertura, prévia e recálculo com a margem", async (
   test.skip(isMobile, "Altera dados reais: roda uma vez (desktop)");
   // Guarda a regra atual para devolver no final, aconteça o que acontecer
   const { data: saved } = await db().from("settings").select("value").eq("key", "pricing").single();
-  const original = saved!.value as { margin_pct: number };
 
   try {
     await page.goto("/admin/login");
@@ -30,12 +29,18 @@ test("preços de mercado: cobertura, prévia e recálculo com a margem", async (
     await expect(page.getByRole("heading", { name: "Cobertura por mercado" })).toBeVisible();
     await expect(page.getByText("AK-47 | Redline (Field-Tested)")).toBeVisible();
 
-    await page.getByLabel("Margem da loja (%)").fill(String(original.margin_pct + 1));
+    // Modo revendedor: preço = ¥ × cotação
+    await page.getByRole("radio", { name: /¥ × cotação/ }).click();
+    await page.getByRole("button", { name: "0,82" }).click();
     await expect(page.getByText("com a regra nova")).toBeVisible();
     await page.getByRole("button", { name: "Aplicar e recalcular preços" }).click();
     await expect(page.getByText(/Preços recalculados/)).toBeVisible({ timeout: 30_000 });
     const { data: changed } = await db().from("settings").select("value").eq("key", "pricing").single();
-    expect((changed!.value as { margin_pct: number }).margin_pct).toBe(original.margin_pct + 1);
+    expect(changed!.value).toMatchObject({ mode: "cny", cny_rate: 0.82 });
+
+    // Dólar + margem continua disponível
+    await page.getByRole("radio", { name: /Dólar \+ margem/ }).click();
+    await expect(page.getByLabel("Margem da loja (%)")).toBeVisible();
   } finally {
     const client = db();
     await client.from("settings").upsert({ key: "pricing", value: saved!.value, is_public: false });

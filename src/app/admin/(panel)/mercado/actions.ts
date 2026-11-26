@@ -12,7 +12,11 @@ export type MarketActionResult = { ok: true; message: string } | { ok: false; er
 
 const pricingSchema = z.object({
   source: z.enum(MARKET_SOURCES),
+  /** "usd" = US$ × dólar × margem · "cny" = ¥ × cotação do revendedor */
+  mode: z.enum(["usd", "cny"]).default("usd"),
   marginPct: z.number({ message: "Informe a margem" }).min(-50, "Mínimo -50%").max(300, "Máximo 300%"),
+  /** R$ por ¥ (ex.: 0,82) — só no modo "cny" */
+  cnyRate: z.number().min(0.1, "Cotação mínima R$ 0,10").max(5, "Cotação máxima R$ 5,00").optional(),
 });
 
 function refreshStore() {
@@ -28,7 +32,14 @@ export async function savePricingRule(raw: z.input<typeof pricingSchema>): Promi
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
 
   const { data: current } = await db.from("settings").select("value").eq("key", "pricing").maybeSingle();
-  const value = { ...(current?.value ?? {}), source: parsed.data.source, margin_pct: parsed.data.marginPct };
+  if (parsed.data.mode === "cny" && !parsed.data.cnyRate) return { ok: false, error: "Informe a cotação (R$ por ¥)" };
+  const value = {
+    ...(current?.value ?? {}),
+    source: parsed.data.source,
+    mode: parsed.data.mode,
+    margin_pct: parsed.data.marginPct,
+    ...(parsed.data.cnyRate ? { cny_rate: parsed.data.cnyRate } : {}),
+  };
   const { error } = await db.from("settings").upsert({ key: "pricing", value, is_public: false });
   if (error) return { ok: false, error: "Não foi possível salvar a regra." };
   const { data: count, error: repriceError } = await db.rpc("reprice_market_offers");

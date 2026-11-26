@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Tags,
+  Calculator,
   MessageCircle,
   Settings,
   Store,
@@ -50,6 +51,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
       { href: "/admin/financeiro/variacoes", label: "Baixas e altas", title: "Baixas e altas", subtitle: "Valorização do estoque vs. preço pago" },
     ],
   },
+  { href: "/admin/cotador", label: "Cotador", icon: Calculator, title: "Cotador", subtitle: "Cote skins em ¥ com a sua cotação" },
   { href: "/admin/mercado", label: "Preços de mercado", icon: Tags, title: "Preços de mercado", subtitle: "Catálogo sincronizado e regra de preço" },
   { href: "/admin/movimentacoes", label: "Movimentações", icon: ArrowRightLeft, title: "Movimentações", subtitle: "Entradas (compras) e saídas (vendas)" },
   { href: "/admin/sub-lojas", label: "Sub-Lojas", icon: Store, title: "Sub-Lojas", subtitle: "Lojas vendidas para revendedores" },
@@ -80,7 +82,7 @@ const byHref = (href: string) => ADMIN_NAV.find((i) => i.href === href)!;
 /** Menu lateral agrupado por assunto. */
 export const ADMIN_NAV_SECTIONS: { label: string; items: AdminNavItem[] }[] = [
   { label: "Geral", items: [byHref("/admin"), byHref("/admin/pedidos")] },
-  { label: "Operação", items: [byHref("/admin/mercado"), byHref("/admin/estoque"), byHref("/admin/movimentacoes"), byHref("/admin/financeiro")] },
+  { label: "Operação", items: [byHref("/admin/cotador"), byHref("/admin/mercado"), byHref("/admin/estoque"), byHref("/admin/movimentacoes"), byHref("/admin/financeiro")] },
   { label: "Clientes", items: [byHref("/admin/clientes"), byHref("/admin/influenciadores"), byHref("/admin/automacao"), byHref("/admin/sub-lojas")] },
   { label: "Sistema", items: [byHref("/admin/whatsapp"), byHref("/admin/relatorios"), byHref("/admin/configuracoes")] },
 ];

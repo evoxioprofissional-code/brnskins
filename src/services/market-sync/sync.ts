@@ -230,7 +230,15 @@ export async function syncMarketCatalog(db: SupabaseClient): Promise<SyncResult>
   await db.from("market_offers").delete().lt("synced_at", now);
 
   const { data: cfg } = await db.from("settings").select("value").eq("key", "pricing").maybeSingle();
-  const pricing = { source: "buff163", margin_pct: 8, ...(cfg?.value ?? {}), usd_brl: Math.round(usdBrl * 10000) / 10000 };
+  const usdCny = Number(rates.CNY);
+  const pricing = {
+    source: "buff163",
+    margin_pct: 8,
+    ...(cfg?.value ?? {}),
+    usd_brl: Math.round(usdBrl * 10000) / 10000,
+    // Cotação do yuan (BUFF e C5 vendem em ¥): usada no modo "¥ × cotação" e no cotador
+    ...(Number.isFinite(usdCny) && usdCny > 0 ? { usd_cny: Math.round(usdCny * 10000) / 10000 } : {}),
+  };
   await db.from("settings").upsert({ key: "pricing", value: pricing, is_public: false });
   const { error: repriceError } = await db.rpc("reprice_market_offers");
   if (repriceError) throw new Error(`reprice: ${repriceError.message}`);

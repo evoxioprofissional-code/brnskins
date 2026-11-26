@@ -11,7 +11,7 @@ import { MARKET_LABELS, MARKET_SOURCES, type MarketSource } from "@/services/mar
 
 export interface MarketPageData {
   configured: boolean;
-  pricing: { source?: MarketSource; margin_pct?: number; usd_brl?: number } | null;
+  pricing: { source?: MarketSource; margin_pct?: number; usd_brl?: number; usd_cny?: number; mode?: "usd" | "cny"; cny_rate?: number } | null;
   sync: {
     skins: number;
     offers: number;
@@ -48,16 +48,32 @@ export function AdminMarket({ data }: { data: MarketPageData }) {
   const [source, setSource] = useState<MarketSource>(data.pricing?.source ?? "buff163");
   const [margin, setMargin] = useState(String(data.pricing?.margin_pct ?? 8));
   const marginNum = Number(margin.replace(",", "."));
-  const dirty = source !== (data.pricing?.source ?? "buff163") || marginNum !== (data.pricing?.margin_pct ?? 8);
+  // Modo "¥ × cotação" (revendedor): R$ por yuan definido pelo dono
+  const usdCny = data.pricing?.usd_cny ?? 0;
+  const savedMode = data.pricing?.mode ?? "usd";
+  const savedCny = data.pricing?.cny_rate ?? (usdCny ? Math.round((rate / usdCny) * (1 + (data.pricing?.margin_pct ?? 8) / 100) * 100) / 100 : 0.85);
+  const [mode, setMode] = useState<"usd" | "cny">(savedMode);
+  const [cnyRate, setCnyRate] = useState(String(savedCny).replace(".", ","));
+  const cnyNum = Number(cnyRate.replace(",", "."));
+  const dirty =
+    source !== (data.pricing?.source ?? "buff163") ||
+    mode !== savedMode ||
+    (mode === "usd" ? marginNum !== (data.pricing?.margin_pct ?? 8) : cnyNum !== savedCny);
 
   const preview = useMemo(
     () =>
       data.samples.map((s) => {
         const p = pick(s.usd, source);
-        const price = p && Number.isFinite(marginNum) ? Math.round(p.usd * rate * (1 + marginNum / 100) * 100) / 100 : null;
+        const price = !p
+          ? null
+          : mode === "cny" && usdCny && Number.isFinite(cnyNum)
+            ? Math.round(p.usd * usdCny * cnyNum * 100) / 100
+            : Number.isFinite(marginNum)
+              ? Math.round(p.usd * rate * (1 + marginNum / 100) * 100) / 100
+              : null;
         return { ...s, src: p?.src ?? null, price };
       }),
-    [data.samples, source, marginNum, rate],
+    [data.samples, source, marginNum, rate, mode, usdCny, cnyNum],
   );
 
   if (!data.configured) {
@@ -145,8 +161,35 @@ export function AdminMarket({ data }: { data: MarketPageData }) {
         <section className="card-premium p-5 xl:col-span-5">
           <h2 className="text-[15px] font-semibold">Regra de preço</h2>
           <p className="mt-1 text-[12.5px] text-muted">
-            Preço na loja = preço do mercado base × dólar × (1 + margem). Sem preço no mercado base, usa o próximo disponível.
+            {mode === "cny"
+              ? "Preço na loja = preço do mercado base em ¥ × sua cotação (R$ por ¥). Sem preço no mercado base, usa o próximo disponível."
+              : "Preço na loja = preço do mercado base × dólar × (1 + margem). Sem preço no mercado base, usa o próximo disponível."}
           </p>
+
+          <p className="mb-2 mt-5 text-[12.5px] font-medium text-fg-2">Como cobrar</p>
+          <div role="radiogroup" aria-label="Como cobrar" className="grid grid-cols-2 gap-1.5">
+            {(
+              [
+                { id: "cny", label: "¥ × cotação", hint: "modelo dos revendedores" },
+                { id: "usd", label: "Dólar + margem", hint: "câmbio do dia + %" },
+              ] as const
+            ).map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                role="radio"
+                aria-checked={mode === m.id}
+                onClick={() => setMode(m.id)}
+                className={cn(
+                  "rounded-[12px] border px-3 py-2 text-left transition-colors",
+                  mode === m.id ? "border-white bg-white text-black" : "border-white/[0.1] text-fg-2 hover:border-white/[0.22]",
+                )}
+              >
+                <span className="block text-[13px] font-semibold">{m.label}</span>
+                <span className={cn("block text-[11px]", mode === m.id ? "text-black/60" : "text-faint")}>{m.hint}</span>
+              </button>
+            ))}
+          </div>
 
           <p className="mb-2 mt-5 text-[12.5px] font-medium text-fg-2">Mercado base</p>
           <div role="radiogroup" aria-label="Mercado base" className="flex flex-wrap gap-1.5">
@@ -167,6 +210,39 @@ export function AdminMarket({ data }: { data: MarketPageData }) {
             ))}
           </div>
 
+          {mode === "cny" ? (
+            <div className="mt-5">
+              <span className="text-[12.5px] font-medium text-fg-2">Cotação (R$ por ¥ 1)</span>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {[0.76, 0.82, 0.85, 0.9, 1].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setCnyRate(String(v).replace(".", ","))}
+                    className={cn(
+                      "h-8 rounded-full px-3 text-[12.5px] font-semibold tabular-nums transition-colors",
+                      cnyNum === v ? "bg-white text-black" : "border border-white/[0.1] text-fg-2 hover:border-white/[0.22] hover:text-white",
+                    )}
+                  >
+                    {v.toFixed(2).replace(".", ",")}
+                  </button>
+                ))}
+                <input
+                  inputMode="decimal"
+                  value={cnyRate}
+                  onChange={(e) => setCnyRate(e.target.value.replace(/[^\d.,]/g, ""))}
+                  aria-label="Cotação (R$ por ¥)"
+                  className="h-8 w-[76px] rounded-full border border-white/[0.1] bg-black/30 px-2 text-center text-[13px] font-semibold outline-none focus:border-primary/60"
+                />
+              </div>
+              <p className="mt-2 text-[11.5px] text-faint">
+                Yuan hoje: R$ {usdCny ? (rate / usdCny).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "—"}
+                {usdCny && Number.isFinite(cnyNum) && cnyNum > 0 && (
+                  <> · sua cotação fica {Math.round((cnyNum / (rate / usdCny) - 1) * 100)}% acima</>
+                )}
+              </p>
+            </div>
+          ) : (
           <label className="mt-5 block">
             <span className="text-[12.5px] font-medium text-fg-2">Margem da loja (%)</span>
             <div className="mt-2 flex items-center gap-3">
@@ -190,11 +266,12 @@ export function AdminMarket({ data }: { data: MarketPageData }) {
               />
             </div>
           </label>
+          )}
 
           <button
             type="button"
-            disabled={!dirty || save.pending || !Number.isFinite(marginNum)}
-            onClick={() => save.run(() => savePricingRule({ source, marginPct: marginNum }))}
+            disabled={!dirty || save.pending || !Number.isFinite(marginNum) || (mode === "cny" && !(cnyNum > 0))}
+            onClick={() => save.run(() => savePricingRule({ source, mode, marginPct: marginNum, ...(mode === "cny" ? { cnyRate: cnyNum } : {}) }))}
             className="mt-6 h-10 w-full rounded-full bg-primary text-[13.5px] font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-40"
           >
             {save.pending ? "Recalculando..." : dirty ? "Aplicar e recalcular preços" : "Regra aplicada"}
