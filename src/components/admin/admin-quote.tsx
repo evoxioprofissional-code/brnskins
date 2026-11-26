@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ClipboardCopy, Download, Info, Search, Trash2, X } from "lucide-react";
 import type { QuoteItem } from "@/lib/quote";
 import { WEAR_COLORS } from "@/config/catalog";
@@ -47,9 +48,9 @@ function loadState() {
 
 /* ------------------------------------------------------------------ busca */
 
-function ItemPicker({ onAdd, placeholder }: { onAdd: (items: QuoteItem[]) => void; placeholder: string }) {
+function ItemPicker({ onAdd, placeholder, initialQuery = "" }: { onAdd: (items: QuoteItem[]) => void; placeholder: string; initialQuery?: string }) {
   const [tab, setTab] = useState<"search" | "paste">("search");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<QuoteItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -203,6 +204,8 @@ function ItemPicker({ onAdd, placeholder }: { onAdd: (items: QuoteItem[]) => voi
 /* ------------------------------------------------------------------ página */
 
 export function AdminQuote({ yuanToday, storeRate, configured }: { yuanToday: number; storeRate: number; configured: boolean }) {
+  // Skin escolhida na paleta de comandos (?q=) já entra buscada
+  const initialQuery = useSearchParams().get("q") ?? "";
   const [base, setBase] = useState<Base>("buff163");
   const [rate, setRate] = useState(storeRate);
   const [rateInput, setRateInput] = useState(n2(storeRate));
@@ -398,7 +401,7 @@ export function AdminQuote({ yuanToday, storeRate, configured }: { yuanToday: nu
                 {store.reduce((s, l) => s + l.qty, 0)} {store.reduce((s, l) => s + l.qty, 0) === 1 ? "item" : "itens"}
               </span>
             </div>
-            <ItemPicker onAdd={addStore} placeholder="Buscar skin pelo nome… (ex.: karambit tiger tooth fn)" />
+            <ItemPicker onAdd={addStore} placeholder="Buscar skin pelo nome… (ex.: karambit tiger tooth fn)" initialQuery={initialQuery} />
             <ul className="mt-3 space-y-2">
               {store.map((l, i) => {
                 const cny = cnyOf(l.item, base);

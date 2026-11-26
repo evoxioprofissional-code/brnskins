@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, ExternalLink, LogOut, Menu, Search } from "lucide-react";
+import { Bell, ChevronRight, Command, ExternalLink, LogOut, Menu, Search } from "lucide-react";
 import { logoutAction } from "@/app/admin/actions";
-import { skinDisplayName } from "@/lib/skin";
 import { buildAlerts, timeAgo } from "@/lib/admin-metrics";
+import { cn } from "@/lib/cn";
 import { useAdminStore } from "@/stores/admin-store";
 import { useAdminData } from "./admin-data-provider";
-import { findNavLink } from "./admin-nav";
+import { ADMIN_NAV, findNavLink } from "./admin-nav";
 
 function useOutside(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
@@ -28,62 +28,71 @@ function useOutside(open: boolean, close: () => void) {
   return ref;
 }
 
-function GlobalSearch() {
-  const { skins } = useAdminData();
-  const clients = useAdminStore((s) => s.clients);
-  const subStores = useAdminStore((s) => s.subStores);
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const ref = useOutside(open, () => setOpen(false));
+/* ---------------------------------------------------------------- mercado */
 
-  const results = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (term.length < 2) return [];
-    const out: { label: string; hint: string; href: string }[] = [];
-    skins.filter((s) => skinDisplayName(s).toLowerCase().includes(term)).slice(0, 4).forEach((s) => out.push({ label: skinDisplayName(s), hint: "Skin", href: `/admin/estoque?q=${encodeURIComponent(s.finish)}` }));
-    clients.filter((c) => `${c.name} ${c.handle}`.toLowerCase().includes(term)).slice(0, 4).forEach((c) => out.push({ label: `${c.name} (@${c.handle})`, hint: "Cliente", href: `/admin/clientes?q=${encodeURIComponent(c.handle)}` }));
-    subStores.filter((s) => `${s.name} ${s.slug}`.toLowerCase().includes(term)).slice(0, 3).forEach((s) => out.push({ label: s.name, hint: "Sub-loja", href: "/admin/sub-lojas" }));
-    return out;
-  }, [q, skins, clients, subStores]);
+interface Ticker {
+  configured: boolean;
+  usdBrl: number;
+  cnyBrl: number;
+  mode: string;
+  cnyRate: number | null;
+  marginPct: number;
+  source: string;
+  syncedAt: string | null;
+}
 
+const SOURCE_LABEL: Record<string, string> = { buff163: "BUFF", c5game: "C5", csfloat: "CSFloat", skinport: "Skinport", steam: "Steam" };
+const n = (v: number, d: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+/** Painel ao vivo do mercado (câmbio, regra da loja e última sincronização) */
+function MarketTicker() {
+  const [t, setT] = useState<Ticker | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch("/api/admin/market-ticker")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => alive && d?.configured && setT(d))
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 120_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  if (!t) return null;
+  const stale = t.syncedAt ? Date.now() - new Date(t.syncedAt).getTime() > 36 * 3600_000 : true;
+  const cell = "flex items-baseline gap-1.5 px-3";
   return (
-    <div ref={ref} className="relative hidden w-[280px] md:block">
-      <label className="flex h-9 items-center rounded-[9px] border border-white/[0.06] bg-white/[0.02] px-3 transition-colors focus-within:border-white/[0.16]">
-        <Search size={15} className="text-faint" />
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          placeholder="Buscar skin, cliente, sub-loja"
-          aria-label="Busca global do painel"
-          className="ml-2 h-full flex-1 bg-transparent text-[13px] outline-none placeholder:text-faint"
-        />
-      </label>
-      <AnimatePresence>
-        {open && results.length > 0 && (
-          <motion.ul
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-x-0 top-[calc(100%+6px)] z-50 rounded-[12px] border border-border-strong bg-elevated p-1.5 shadow-2xl"
-          >
-            {results.map((r) => (
-              <li key={r.hint + r.label}>
-                <Link href={r.href} onClick={() => setOpen(false)} className="flex items-center justify-between rounded-[8px] px-3 py-2 text-[13px] hover:bg-white/[0.05]">
-                  <span className="truncate">{r.label}</span>
-                  <span className="ml-3 shrink-0 text-[11px] text-faint">{r.hint}</span>
-                </Link>
-              </li>
-            ))}
-          </motion.ul>
-        )}
-      </AnimatePresence>
-    </div>
+    <Link
+      href="/admin/mercado"
+      title="Preços de mercado"
+      className="hidden items-center divide-x divide-white/[0.07] rounded-full border border-white/[0.07] bg-black/30 py-1.5 text-[11.5px] transition-colors hover:border-white/[0.16] xl:flex"
+    >
+      <span className={cell}>
+        <span className="text-faint">¥1</span>
+        <span className="font-semibold tabular-nums text-white">R$ {n(t.cnyBrl, 4)}</span>
+      </span>
+      <span className={cell}>
+        <span className="text-faint">US$1</span>
+        <span className="font-semibold tabular-nums text-white">R$ {n(t.usdBrl, 2)}</span>
+      </span>
+      <span className={cell}>
+        <span className="text-faint">Loja</span>
+        <span className="font-semibold text-white">
+          {SOURCE_LABEL[t.source] ?? t.source} · {t.mode === "cny" && t.cnyRate ? `¥ × ${n(t.cnyRate, 2)}` : `+${n(t.marginPct, 0)}%`}
+        </span>
+      </span>
+      <span className={cn(cell, "pr-3.5")}>
+        <span className={cn("size-1.5 self-center rounded-full", stale ? "bg-amber-400" : "bg-[#22c55e] shadow-[0_0_8px_#22c55e]")} />
+        <span className="text-muted">{t.syncedAt ? `sync ${timeAgo(t.syncedAt)}` : "sem sync"}</span>
+      </span>
+    </Link>
   );
 }
+
+/* ---------------------------------------------------------------- alertas */
 
 function AlertsBell() {
   const { skins } = useAdminData();
@@ -92,26 +101,42 @@ function AlertsBell() {
   const subStores = useAdminStore((s) => s.subStores);
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, () => setOpen(false));
-  const alerts = useMemo(
-    () => buildAlerts({ stock, clients, subStores, skins: new Map(skins.map((s) => [s.id, s])) }),
-    [stock, clients, subStores, skins],
-  );
+  const alerts = useMemo(() => buildAlerts({ stock, clients, subStores, skins: new Map(skins.map((s) => [s.id, s])) }), [stock, clients, subStores, skins]);
   return (
     <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-label={`Alertas (${alerts.length})`} className="relative grid size-9 place-items-center rounded-[9px] text-muted transition-colors hover:bg-white/[0.04] hover:text-white">
-        <Bell size={18} strokeWidth={1.8} />
-        {alerts.length > 0 && <span className="absolute right-[9px] top-[8px] size-[7px] rounded-full bg-primary ring-2 ring-[#050608]" />}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`Alertas (${alerts.length})`}
+        className="relative grid size-9 place-items-center rounded-full border border-white/[0.07] text-muted transition-colors hover:border-white/[0.16] hover:text-white"
+      >
+        <Bell size={16} strokeWidth={1.9} />
+        {alerts.length > 0 && (
+          <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold text-white ring-2 ring-[#050608]">
+            {alerts.length}
+          </span>
+        )}
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute right-0 top-[calc(100%+8px)] z-50 w-[320px] rounded-[12px] border border-border-strong bg-elevated p-2 shadow-2xl">
-            <p className="px-2 pb-2 pt-1 text-[12px] font-medium text-muted">Alertas</p>
-            {alerts.map((a) => (
-              <Link key={a.id} href={a.href ?? "/admin"} onClick={() => setOpen(false)} className="block rounded-[8px] px-2.5 py-2 text-[13px] hover:bg-white/[0.05]">
-                {a.message}
-                <span className="block text-[11px] text-faint">{timeAgo(a.date)}</span>
-              </Link>
-            ))}
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.14 }}
+            className="absolute right-0 top-[calc(100%+10px)] z-50 w-[340px] overflow-hidden rounded-[16px] border border-white/[0.1] bg-[#0f1013] shadow-2xl"
+          >
+            <p className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 text-[13px] font-semibold">
+              Alertas <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] text-[#ff6b7d]">{alerts.length}</span>
+            </p>
+            <div className="max-h-[360px] overflow-y-auto p-1.5">
+              {alerts.map((a) => (
+                <Link key={a.id} href={a.href ?? "/admin"} onClick={() => setOpen(false)} className="block rounded-[10px] px-3 py-2.5 text-[13px] hover:bg-white/[0.05]">
+                  {a.message}
+                  <span className="block text-[11px] text-faint">{timeAgo(a.date)}</span>
+                </Link>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -129,22 +154,28 @@ function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Conta"
-        className="grid size-8 place-items-center rounded-full bg-white/[0.08] text-[11px] font-semibold text-fg transition-colors hover:bg-white/[0.12]"
+        className="grid size-9 place-items-center rounded-full bg-[linear-gradient(135deg,#e60023,#7a0012)] text-[11px] font-black italic text-white shadow-[0_6px_16px_-6px_rgb(230_0_35/0.9)]"
       >
-        BR
+        BRN
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute right-0 top-[calc(100%+10px)] z-50 w-52 rounded-[12px] border border-border-strong bg-elevated p-1.5 shadow-2xl">
-            <p className="border-b border-white/[0.06] px-3 pb-2 pt-1.5 text-[13px] font-medium">
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.14 }}
+            className="absolute right-0 top-[calc(100%+10px)] z-50 w-56 rounded-[16px] border border-white/[0.1] bg-[#0f1013] p-1.5 shadow-2xl"
+          >
+            <p className="border-b border-white/[0.06] px-3 pb-2.5 pt-2 text-[13px] font-semibold">
               Equipe BRN
               <span className="block text-[11.5px] font-normal text-muted">Administrador</span>
             </p>
-            <Link href="/" className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-[13px] hover:bg-white/[0.05]">
+            <Link href="/" className="mt-1 flex items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] hover:bg-white/[0.05]">
               <ExternalLink size={15} /> Ver loja
             </Link>
             <form action={logoutAction}>
-              <button type="submit" className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-[13px] text-primary hover:bg-white/[0.05]">
+              <button type="submit" className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] text-[#ff6b7d] hover:bg-white/[0.05]">
                 <LogOut size={15} /> Sair
               </button>
             </form>
@@ -155,29 +186,55 @@ function UserMenu() {
   );
 }
 
-export function AdminTopbar({ onMenu }: { onMenu: () => void }) {
+/* ---------------------------------------------------------------- topo */
+
+const DEMO_FREE = ["/admin/influenciadores", "/admin/mercado", "/admin/cotador"];
+
+export function AdminTopbar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () => void }) {
   const pathname = usePathname();
   const link = findNavLink(pathname);
+  const group = ADMIN_NAV.find((i) => i.children?.some((c) => c.href === link?.href) && i.href !== link?.href);
   return (
-    <header className="sticky top-0 z-30 flex h-[60px] items-center gap-3 border-b border-white/[0.06] bg-[#050608]/90 px-4 backdrop-blur lg:px-8">
+    <header className="sticky top-0 z-30 flex h-[64px] items-center gap-3 border-b border-white/[0.06] bg-[#050608]/85 px-4 backdrop-blur-xl lg:px-8">
       <button type="button" onClick={onMenu} aria-label="Abrir menu" className="grid size-9 place-items-center rounded-lg text-fg lg:hidden">
         <Menu size={20} />
       </button>
       <div className="min-w-0">
-        <h1 className="truncate text-[16px] font-semibold leading-[22px]">{link?.title ?? "Admin"}</h1>
-        {link?.subtitle && <p className="hidden truncate text-[12px] text-muted sm:block">{link.subtitle}</p>}
+        <p className="hidden items-center gap-1 text-[11.5px] text-faint sm:flex">
+          Admin
+          {group && (
+            <>
+              <ChevronRight size={11} /> {group.label}
+            </>
+          )}
+          <ChevronRight size={11} />
+          <span className="text-muted">{link?.label ?? "Início"}</span>
+        </p>
+        <h1 className="truncate text-[17px] font-semibold leading-[22px] tracking-[-0.01em]">{link?.title ?? "Admin"}</h1>
       </div>
-      <div className="ml-auto flex items-center gap-2 lg:gap-3">
-        {/* Telas já ligadas ao banco não mostram o aviso de demonstração */}
-        {!["/admin/influenciadores", "/admin/mercado", "/admin/cotador"].some((p) => pathname.startsWith(p)) && (
-        <span
-          title="O banco de dados ainda não está conectado: as alterações ficam salvas apenas neste navegador."
-          className="hidden items-center gap-1.5 rounded-full border border-amber-400/20 px-2.5 py-1 text-[11.5px] font-medium text-amber-200/80 sm:inline-flex"
-        >
-          <span className="size-1.5 rounded-full bg-amber-400" /> Modo demonstração
-        </span>
+
+      <div className="ml-auto flex items-center gap-2">
+        <MarketTicker />
+        {!DEMO_FREE.some((p) => pathname.startsWith(p)) && (
+          <span
+            title="Esta tela ainda usa dados de demonstração: as alterações ficam salvas apenas neste navegador."
+            className="hidden items-center gap-1.5 rounded-full border border-amber-400/20 px-2.5 py-1.5 text-[11px] font-medium text-amber-200/80 2xl:inline-flex"
+          >
+            <span className="size-1.5 rounded-full bg-amber-400" /> Demonstração
+          </span>
         )}
-        <GlobalSearch />
+        <button
+          type="button"
+          onClick={onSearch}
+          className="flex h-9 items-center gap-2 rounded-full border border-white/[0.07] bg-black/30 pl-3 pr-1.5 text-[12.5px] text-muted transition-colors hover:border-white/[0.16] hover:text-white"
+          aria-label="Buscar e executar comandos (Ctrl+K)"
+        >
+          <Search size={14} />
+          <span className="hidden md:inline">Buscar ou executar…</span>
+          <kbd className="hidden items-center gap-0.5 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10.5px] font-semibold text-fg-2 md:inline-flex">
+            <Command size={10} />K
+          </kbd>
+        </button>
         <AlertsBell />
         <UserMenu />
       </div>

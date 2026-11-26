@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("dashboard exibe os painéis principais sem OpenAI", async ({ page }) => {
-  for (const title of ["Desempenho", "Precisa de atenção", "Estoque", "Caixa", "Clientes"]) {
+  for (const title of ["Precisa de atenção", "Mercado hoje", "Estoque", "Top clientes"]) {
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   }
   await expect(page.getByText(/OpenAI|GPT|Assistente IA/i)).toHaveCount(0);
@@ -48,4 +48,19 @@ test("nova sub-loja fica aguardando pagamento e é liberada ao confirmar", async
   await expect(row.getByText("Aguardando pagamento")).toBeVisible();
   await row.getByRole("button", { name: "Confirmar pagamento" }).click();
   await expect(row.getByText("Ativa")).toBeVisible();
+});
+
+test("paleta de comandos (Ctrl+K) abre telas e o dashboard troca o gráfico", async ({ page, isMobile }) => {
+  test.skip(isMobile, "Atalho de teclado (desktop)");
+  // Clicar num indicador muda o gráfico principal
+  await page.getByRole("button", { name: /Lucro líquido/ }).first().click();
+  await expect(page.getByText("Lucro líquido · últimos 30 dias")).toBeVisible();
+
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Paleta de comandos" });
+  await expect(palette).toBeVisible();
+  await palette.getByLabel("Buscar comando").fill("cotador");
+  await page.keyboard.press("Enter");
+  await page.waitForURL(/\/admin\/cotador/);
+  await expect(page.getByRole("heading", { name: "Cotador" })).toBeVisible();
 });

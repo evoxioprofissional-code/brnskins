@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, Info, type LucideIcon } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowDown, ArrowRight, ArrowUp, Info, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /** Linha de descrição/ações das páginas (o título fica na topbar). */
@@ -145,7 +146,7 @@ export function PrimaryButton({ children, onClick, type = "button", small }: { c
       type={type}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-[8px] bg-primary font-semibold text-white transition-colors hover:bg-primary-hover",
+        "inline-flex items-center justify-center gap-2 rounded-full bg-primary font-semibold text-white shadow-[0_10px_24px_-12px_rgb(230_0_35/0.9)] transition-all hover:-translate-y-0.5 hover:bg-primary-hover",
         small ? "h-[30px] px-3 text-[12.5px]" : "h-9 px-3.5 text-[13px]",
       )}
     >
@@ -159,7 +160,7 @@ export function GhostButton({ children, onClick }: { children: ReactNode; onClic
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-9 items-center gap-2 rounded-[8px] border border-white/[0.08] px-3.5 text-[13px] font-medium text-fg-2 transition-colors hover:border-white/[0.16] hover:text-white"
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-white/[0.1] px-4 text-[13px] font-medium text-fg-2 transition-all hover:-translate-y-0.5 hover:border-white/[0.22] hover:text-white"
     >
       {children}
     </button>
@@ -172,7 +173,7 @@ export function SelectPill<T extends string>({ value, options, onChange, label }
       value={value}
       onChange={(e) => onChange(e.target.value as T)}
       aria-label={label}
-      className="h-8 rounded-[8px] border border-white/[0.08] bg-transparent pl-2.5 pr-7 text-[12.5px] text-fg-2 outline-none hover:text-white focus:border-primary/60 [&>option]:bg-[#0e0f12]"
+      className="h-8 rounded-full border border-white/[0.1] bg-black/30 pl-3 pr-7 text-[12.5px] text-fg-2 outline-none hover:text-white focus:border-primary/60 [&>option]:bg-[#0e0f12]"
     >
       {options.map((o) => (
         <option key={o.id} value={o.id}>
@@ -254,7 +255,7 @@ export function Table({ head, children, minWidth = 640 }: { head: ReactNode[]; c
         <thead>
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="border-b border-white/[0.06] pb-2.5 pr-4 text-[12px] font-medium text-muted">
+              <th key={i} className="sticky top-0 z-[1] border-b border-white/[0.06] bg-[#0b0c0e]/95 pb-2.5 pr-4 pt-1 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-faint backdrop-blur">
                 {h}
               </th>
             ))}
@@ -266,25 +267,33 @@ export function Table({ head, children, minWidth = 640 }: { head: ReactNode[]; c
   );
 }
 
+/** Janela com animação e fundo desfocado (folha de baixo no celular). */
 export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-end bg-black/70 p-0 sm:place-items-center sm:p-4" onMouseDown={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onMouseDown={(e) => e.stopPropagation()}
-        className={cn(panelClass, "max-h-[90dvh] w-full overflow-y-auto rounded-b-none bg-[#0c0d10] p-6 sm:max-w-[460px] sm:rounded-[14px]")}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[16px] font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="grid size-8 place-items-center rounded-md text-fg-2 hover:bg-white/[0.05]">
-            ✕
-          </button>
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[70] grid place-items-end p-0 sm:place-items-center sm:p-4">
+          <motion.div className="absolute inset-0 bg-black/70 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={onClose} />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className={cn(panelClass, "relative max-h-[90dvh] w-full overflow-y-auto rounded-b-none bg-[#0c0d10] p-6 sm:max-w-[480px] sm:rounded-[20px]")}
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h2>
+              <button type="button" onClick={onClose} aria-label="Fechar" className="grid size-8 place-items-center rounded-full text-muted hover:bg-white/[0.06] hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+            {children}
+          </motion.div>
         </div>
-        {children}
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

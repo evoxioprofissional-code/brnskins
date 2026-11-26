@@ -35,12 +35,17 @@ export function AreaChart({
   labels,
   height = 180,
   ariaLabel,
+  money = true,
 }: {
   series: AreaSeries[];
   labels: string[];
   height?: number;
   ariaLabel: string;
+  /** false = quantidades (sem R$) */
+  money?: boolean;
 }) {
+  const axis = (v: number) => (money ? compact(v) : v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}K` : String(Math.round(v)));
+  const full = (v: number) => (money ? brl(v) : Math.round(v).toLocaleString("pt-BR"));
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const padL = 58;
@@ -92,7 +97,7 @@ export function AreaChart({
             <g key={t}>
               <line x1={padL} x2={padL + w} y1={y(t)} y2={y(t)} stroke="rgb(255 255 255 / 0.05)" />
               <text x={padL - 10} y={y(t) + 4} textAnchor="end" className="fill-[#6b6c74] text-[11px]">
-                {compact(t)}
+                {axis(t)}
               </text>
             </g>
           ))}
@@ -132,7 +137,7 @@ export function AreaChart({
                 <span className="size-2 rounded-full" style={{ background: s.color }} />
                 {s.label}
               </span>
-              <span className="font-semibold text-fg">{brl(s.values[hover] ?? 0)}</span>
+              <span className="font-semibold text-fg">{full(s.values[hover] ?? 0)}</span>
             </p>
           ))}
         </div>
